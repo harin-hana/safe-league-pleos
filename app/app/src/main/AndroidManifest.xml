@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.type.automotive" android:required="true" />
+
+    <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="pleos.car.permission.CAR_INFO" />
+    <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <uses-permission android:name="pleos.car.permission.CAR_SAFETY" />
+    <uses-permission android:name="pleos.car.permission.CAR_WINDOWS" />
+    <!-- 시험: 타이어 · 경고등이 이 권한을 요구하는지 -->
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_SAFETY" />
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_DRIVE" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE_SEARCH" />
+    <uses-permission android:name="pleos.car.permission.NAVI_NOTIFY" />
+    <uses-permission android:name="pleos.car.permission.NAVI_CUSTOM_ROUTE" />
+    <!-- 세이프 리그 신호 진단(2026-11-05) -->
+    <uses-permission android:name="pleos.car.permission.CAR_LIGHTS" />
+    <!-- 앰비언트 설정용(2026-11-06, 기기에서 prot=normal 확인) -->
+    <uses-permission android:name="pleos.car.permission.CONTROL_CAR_LIGHTS" />
+    <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
+    <uses-permission android:name="android.car.permission.CAR_SPEED" />
+    <uses-permission android:name="android.car.permission.CAR_EXTERIOR_ENVIRONMENT" />
+    <uses-permission android:name="android.car.permission.CAR_POWERTRAIN" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- 앱 이름은 미정. 임시 이름 pleos_commerce -->
+    <application
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <meta-data android:name="distractionOptimized" android:value="true" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".SettingsActivity" android:exported="false" />
+        <!-- 신호 진단: adb shell am start -n ai.pleos.contest.pleos_commerce/ai.pleos.contest.DiagActivity -->
+        <activity android:name=".DiagActivity" android:exported="true" />
+        <!-- 세이프 리그 신호 진단: adb shell am start -n ai.pleos.contest.pleos_commerce/ai.pleos.contest.LeagueDiagActivity -->
+        <activity android:name=".LeagueDiagActivity" android:exported="true" android:launchMode="singleTask" />
+        <service android:name=".ArrivalService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="vehicle gear watch for league result" />
+        </service>
+    </application>
+</manifest>

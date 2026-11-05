@@ -1,0 +1,23 @@
+# Gradle / Android
+.gradle/
+build/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+*.iml
+.idea/
+.DS_Store
+
+# 로컬 설정과 서명 키 (저장소에 넣지 않음)
+local.properties
+*.jks
+*.keystore
+keystore.properties
+.env
+.dev.vars
+
+# 빌드 결과물. 제출용 release APK만 예외
+*.apk
+*.aab
+!apk/*_release.apk
