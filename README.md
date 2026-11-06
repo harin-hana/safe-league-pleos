@@ -59,9 +59,9 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 
 ## 4. APK 위치
 
-`apk/같은길_세이프리그_release.apk` (11/11 추가 예정)
+`apk/같은길_세이프리그_release.apk`
 
-용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
+서명된 release 빌드입니다. 지금 올라간 APK는 신호 진단 단계 빌드이고, 시연 앱이 완성되면 같은 이름으로 바꿔 올립니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
 
 ## 폴더
 
