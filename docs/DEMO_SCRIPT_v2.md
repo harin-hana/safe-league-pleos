@@ -126,9 +126,13 @@ curl.exe -X PUT "$v/controls?speed=60"
 }
 # 0:55 앰비언트는 데모 입력(앱이 콤보 10에서 스스로 발생, curl 없음)
 
+# 감점 사이 간격(허브 결정 11/06): 결과 화면 경로 띠의 감점 점이 M14 자리(55, 68, 81%)에 오도록 감점 시각을 벌린다.
+# 리그 참가 기준 콤보 10 약 65초, 감점 82초, 102초, 121초, P단 150초. 영상은 편집으로 줄인다
+Start-Sleep 14
+
 # 1:02 깜빡이 없는 차선 변경(D4, 무음)
 curl.exe -X PUT "$v/controls?steering=8"; Start-Sleep 1
-curl.exe -X PUT "$v/controls?steering=0"; Start-Sleep 4
+curl.exe -X PUT "$v/controls?steering=0"; Start-Sleep 22
 
 # 1:08 급제동(D1): 브레이크 켠 채 60 → 50, 0.5초 넘게 유지
 curl.exe -X PUT "$v/controls?brake=60"
@@ -136,11 +140,12 @@ curl.exe -X PUT "$v/controls?speed=50"; Start-Sleep -Milliseconds 800
 curl.exe -X PUT "$v/controls?brake=0"
 
 # 이어서 정체 급제동(0.5): 15km/h 유지(데모 모드 10초, 아니면 60초) 뒤 25 → 15
-curl.exe -X PUT "$v/controls?speed=15"; Start-Sleep 10
+curl.exe -X PUT "$v/controls?speed=15"; Start-Sleep 17
 curl.exe -X PUT "$v/controls?speed=25"; Start-Sleep 1
 curl.exe -X PUT "$v/controls?brake=60"
 curl.exe -X PUT "$v/controls?speed=15"; Start-Sleep -Milliseconds 800
 curl.exe -X PUT "$v/controls?brake=0"
+Start-Sleep 23   # 정체 급제동 뒤 23초 더 달린 뒤 장면 3(속도 0)
 ```
 
 ### 장면 3. 저녁 도착 (1:15~1:45) M13 3번, 야간

@@ -6,7 +6,11 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 
 현대자동차그룹 차량용 앱 개발 공모전 출품작(팀 「같은길」). Pleos Connect 앱입니다.
 
-> 지금 올라간 앱은 **신호 진단 단계**입니다. 에뮬레이터에서 Vehicle SDK와 NaviHelper 신호를 받아 리그 판정 규칙(`Rules.kt`)에 넣어 보는 화면까지 들어 있습니다. 시연 앱 화면은 다음 푸시에 올라갑니다.
+**화면 네 장면**: 아침 출발(리그 카드, 참가), 저녁 주행(앱 화면 없음, 콤보 소리와 앰비언트만), 저녁 도착(P단에서 리그 결과, 순위, 상금 쿠폰), 다음 날 아침 카드(쿠폰 가게를 내비 경유지로). 판정은 `app/app/src/main/java/ai/pleos/contest/league/`(10Hz 엔진, 감점 8종, 가산 6종)에서 차 신호만으로 합니다.
+
+**리그 서버**: `https://safe-league.alwaysharin.workers.dev` (Cloudflare Workers + D1). 설정 화면에서 서버 주소를 비우면 서버 없이 고스트 리그(기기 안 기록만)로 동작합니다.
+
+**데모 모드**: 설정 화면의 「데모 모드」 스위치를 켜면 화면 구석에 「데모 입력」이 항상 표시되고, 에뮬레이터가 만들지 못하는 신호(도착, 앰비언트 등)를 앱 안에서 발생시킬 수 있습니다. 정체 판정 창 60초가 10초로 줄어 시연이 짧아집니다. 진단 화면(`DiagActivity`, `LeagueDiagActivity`)은 신호 확인용으로 남겨 두었습니다.
 
 ## 1. 실행 방법
 
@@ -23,6 +27,10 @@ A commute league for drivers on the same route, ranked by who arrived most safel
    adb shell am start -n ai.pleos.contest.pleos_commerce/ai.pleos.contest.MainActivity
    ```
    release APK로 볼 때는 `adb install -r apk/같은길_세이프리그_release.apk`를 씁니다(4절).
+4. 속도 신호 권한을 한 번 허용합니다(앱 안 팝업에서 「허용」, 또는 아래 명령).
+   ```
+   adb shell pm grant --user 10 ai.pleos.contest.pleos_commerce android.car.permission.CAR_SPEED
+   ```
 
 ## 2. 테스트 환경과 필요한 설정
 
@@ -46,7 +54,9 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 3. **콘솔 브라우저 탭을 앞에 둡니다.** 탭이 뒤로 숨으면 1~2분 뒤 콘솔이 신호를 받지 않습니다(`503 emulator_inactive`). 새로고침하면 다시 받습니다.
 4. 장면별로 어떤 신호를 어떤 순서로 넣는지는 `docs/DEMO_SCRIPT_v2.md`에 적어 두었습니다.
 
-**권한**: `AndroidManifest.xml`에 Pleos 차량 권한(`pleos.car.permission.*`)과 내비 권한(`NAVI_ROUTE` 외 3개), AAOS 속도 권한이 선언돼 있습니다. 에뮬레이터에서는 따로 허용할 것이 없습니다.
+**권한**: `AndroidManifest.xml`에 Pleos 차량 권한(`pleos.car.permission.*`)과 내비 권한(`NAVI_ROUTE` 외 3개), AAOS 속도 권한이 선언돼 있습니다. 런타임 허용이 필요한 것은 속도(`CAR_SPEED`) 하나이며 1절 4번으로 허용합니다.
+
+**글꼴**: IBM Plex Sans KR, Barlow Semi Condensed를 `res/font/`에 동봉했습니다(SIL Open Font License, 전문은 `assets/licenses/`).
 
 ## 3. 문서
 
@@ -61,7 +71,7 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 
 `apk/같은길_세이프리그_release.apk`
 
-서명된 release 빌드입니다. 지금 올라간 APK는 신호 진단 단계 빌드이고, 시연 앱이 완성되면 같은 이름으로 바꿔 올립니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
+서명된 release 빌드(versionCode 2, 0.2.0)입니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
 
 ## 폴더
 

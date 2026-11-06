@@ -1,56 +1,99 @@
 package ai.pleos.contest
 
+import ai.pleos.contest.league.Engine
 import android.app.Activity
+import android.content.res.Configuration
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 
-// 한 번 정해 두는 설정. 카드 둘째 줄은 여기 값을 그대로 쓴다.
+// 설정(M14 장면 5): 왼쪽 메뉴, 오른쪽 목록. 데모 모드 스위치와 핸들 부호도 여기.
 class SettingsActivity : Activity() {
-    private lateinit var store: Store
+    private lateinit var tone: Tone
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        store = Store(this)
+        Engine.start(this)
         render()
     }
 
     private fun render() {
-        val s = store.settings
-        val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dpi(64f), dpi(48f), dpi(64f), dpi(48f))
+        val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        tone = Tone(day = !night, rain = night && Engine.wiper)
+        val p = Engine.prefs
+        val root = column { setBackgroundColor(tone.g0) }
+        root.addView(FrameLayout(this).apply {
+            pad(32f, 0f, 32f, 0f)
+            addView(text("세이프 리그", 18f, tone.navT2).apply { setOnClickListener { finish() } }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_VERTICAL or Gravity.START))
+            addView(pill("설정", tone), FrameLayout.LayoutParams(WRAP, ki(30f), Gravity.CENTER_VERTICAL or Gravity.END))
+        }, lp(MATCH, ki(52f)))
+        val body = row { setBackgroundColor(tone.nav) }
+        val menu = column { pad(0f, 24f, 0f, 0f) }
+        listOf("리그", "소리와 빛", "내 차", "데모").forEachIndexed { i, m ->
+            menu.addView(text(m, 22f, if (i == 0) tone.navT1 else tone.navT2).apply {
+                pad(32f, 18f, 32f, 18f)
+                if (i == 0) { background = rounded(tone.g0, k(16f)) }
+            }, lp(MATCH).apply { if (i == 0) marginEnd = ki(16f) })
         }
-        col.addView(label("설정", 32f, Pal.t92, bold = true))
-        fun onOff(v: Boolean) = if (v) 0 else 1
-        col.row("커피 카드", listOf("켬", "끔"), onOff(s.coffeeOn)) { store.settings = s.copy(coffeeOn = it == 0) }
-        col.row("커피 기준", Criterion.values().map { it.label }, s.criterion.ordinal) { store.settings = s.copy(criterion = Criterion.values()[it]) }
-        col.row("하루 2번까지", listOf("켬", "끔"), onOff(s.dailyCap)) { store.settings = s.copy(dailyCap = it == 0) }
-        col.row("충전 카드도 2번에 셈", listOf("켬", "끔"), onOff(s.chargeCounts)) { store.settings = s.copy(chargeCounts = it == 0) }
-        val socs = listOf(20, 25, 30)
-        col.row("배터리 기준", socs.map { "$it%" }, socs.indexOf(s.socLimit)) { store.settings = s.copy(socLimit = socs[it]) }
-        val margins = listOf(10, 20, 30)
-        col.row("여유 거리", margins.map { "${it}km" }, margins.indexOf(s.marginKm)) { store.settings = s.copy(marginKm = margins[it]) }
-        if (!MainActivity.RANGE_OK) col.addView(label("주행 가능 거리 신호를 받을 수 있는 차에서 적용돼요", 16f, Pal.t40))
-        col.addView(View(this), LinearLayout.LayoutParams(1, dpi(48f)))
-        col.row("데모 모드", listOf("켬", "끔"), onOff(s.demo), small = true) {
-            // 켤 때마다 오늘 기록을 비워 장면을 처음부터 다시 볼 수 있게 한다
-            if (it == 0) store.memo = Memo()
-            store.settings = s.copy(demo = it == 0)
-        }
-        setContentView(ScrollView(this).apply { setBackgroundColor(Pal.bg); addView(col) })
+        body.addView(menu, lp(ki(320f), MATCH))
+        val list = column { background = rounded(tone.g1, k(24f)); pad(36f, 6f, 36f, 0f) }
+        fun toggle(name: String, sub: String, on: Boolean, set: (Boolean) -> Unit) = list.addView(item(name, sub, Toggle(this, tone, on) { set(it); render() }), lp(MATCH))
+        toggle("출발 때 리그 자동 참가", "P단 카드를 건너뛰고 바로 참가", p.autoJoin) { p.autoJoin = it }
+        toggle("콤보 효과음", "고비마다 한 번", p.sound) { p.sound = it }
+        toggle("TTS 한 마디", "「콤보 10」처럼 짧게", p.tts) { p.tts = it }
+        toggle("앰비언트 반짝", "고비마다 한 번", p.ambient) { p.ambient = it }
+        toggle("동승자 심판석", "동승석에 사람이 있으면 동승자 화면에만", false) { }
+        list.addView(item("차종", "조향비와 축거, 급핸들 판정에 씀", text("조향비 ${fmt(p.steerRatio)}, 축거 ${fmt(p.wheelbase)} m", 19f, tone.t2)), lp(MATCH))
+        list.addView(item("핸들 부호", "에뮬레이터는 콘솔과 반대라 뒤집어 읽음", choice(listOf("에뮬레이터" to -1f, "실차" to 1f), p.steeringSign) { p.steeringSign = it; render() }), lp(MATCH))
+        list.addView(item("별명", "리그에 보이는 이름", edit(p.nickname) { p.nickname = it }), lp(MATCH))
+        list.addView(item("리그 서버", "비워 두면 고스트 리그", edit(p.serverUrl, wide = true) { p.serverUrl = it; Engine.reload() }), lp(MATCH))
+        toggle("데모 모드", "화면 구석에 「데모 입력」 표시. 정체 판정 창 60초를 10초로", p.demo) { p.demo = it; Engine.resetForDemo() }
+        list.addView(text("Vehicle SDK 2.3.2, NaviHelper 3.0.5. AAOS 속도 ${if (Engine.aaosOk) "연결" else "미연결"}. ${Engine.lastError ?: ""}", 15f, tone.t3).apply { pad(0f, 14f, 0f, 20f) })
+        body.addView(ScrollView(this).apply { addView(list) }, lp(0, WRAP, 1f).apply { setMargins(0, ki(16f), ki(24f), ki(24f)) })
+        root.addView(body, lp(MATCH, 0, 1f))
+        setContentView(root)
     }
 
-    private fun LinearLayout.row(name: String, opts: List<String>, sel: Int, small: Boolean = false, pick: (Int) -> Unit) {
-        val r = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dpi(if (small) 8f else 16f), 0, 0) }
-        r.addView(label(name, if (small) 16f else 20f, if (small) Pal.t40 else Pal.t92),
-            LinearLayout.LayoutParams(dpi(320f), LinearLayout.LayoutParams.WRAP_CONTENT))
-        opts.forEachIndexed { i, o ->
-            r.addView(pill(o, on = i == sel, small = small).apply { setOnClickListener { pick(i); render() } },
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dpi(8f) })
+    private fun fmt(v: Float) = if (v == v.toInt().toFloat()) v.toInt().toString() else v.toString()
+
+    private fun item(name: String, sub: String, right: View) = row {
+        pad(0f, 15f, 0f, 15f)
+        background = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, bounds.height() - 1f, bounds.width().toFloat(), bounds.height().toFloat(), android.graphics.Paint().apply { color = tone.hair }) } }
+        addView(column(2f) { addView(text(name, 22f, tone.t1)); addView(text(sub, 17f, tone.t2)) }, lp(0, WRAP, 1f))
+        addView(right)
+    }
+
+    private fun choice(opts: List<Pair<String, Float>>, cur: Float, pick: (Float) -> Unit) = row(8f) {
+        opts.forEach { (name, v) ->
+            addView(text(name, 17f, if (v == cur) tone.acInk else tone.t2).apply {
+                background = rounded(if (v == cur) tone.ac else tone.g3, k(999f)); pad(14f, 6f, 14f, 6f); setOnClickListener { pick(v) }
+            })
         }
-        addView(r)
+    }
+
+    private fun edit(value: String, wide: Boolean = false, set: (String) -> Unit) = EditText(this).apply {
+        setText(value); setTextColor(tone.t1); setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 19f * ZOOM); setSingleLine()
+        inputType = InputType.TYPE_CLASS_TEXT; background = rounded(tone.g3, k(10f)); pad(12f, 6f, 12f, 6f)
+        minWidth = ki(if (wide) 420f else 200f)
+        setOnFocusChangeListener { _, has -> if (!has) set(text.toString().trim()) }
+    }
+}
+
+// M14 .tg 토글
+class Toggle(ctx: android.content.Context, private val tone: Tone, private var on: Boolean, private val set: (Boolean) -> Unit) : View(ctx) {
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    init { setOnClickListener { on = !on; set(on) } }
+    override fun onMeasure(w: Int, h: Int) = setMeasuredDimension(context.ki(64f), context.ki(36f))
+    override fun onDraw(c: android.graphics.Canvas) {
+        p.color = if (on) tone.ac else tone.g3
+        c.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), height / 2f, height / 2f, p)
+        p.color = if (on) tone.acInk else tone.t2
+        val r = context.k(14f); val cx = if (on) width - context.k(4f) - r else context.k(4f) + r
+        c.drawCircle(cx, height / 2f, r, p)
     }
 }
