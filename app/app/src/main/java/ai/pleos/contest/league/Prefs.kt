@@ -10,7 +10,8 @@ class Prefs(ctx: Context) {
 
     var demo: Boolean get() = b("demo", false); set(v) = set("demo", v)
     var steeringSign: Float get() = p.getFloat("steeringSign", -1f); set(v) = set("steeringSign", v)   // -1 에뮬레이터(콘솔과 반대), 1 실차
-    var nickname: String get() = p.getString("nickname", "아침7시42")!!; set(v) = set("nickname", v)
+    // 옛 기본값 「아침7시42」는 시드 별명과 겹쳐 남의 이름으로도 보였다. 저장된 값이 그것이면 새 기본값으로
+    var nickname: String get() = p.getString("nickname", null)?.takeIf { it != "아침7시42" } ?: "첫차보다먼저"; set(v) = set("nickname", v)
     var autoJoin: Boolean get() = b("autoJoin", false); set(v) = set("autoJoin", v)
     var sound: Boolean get() = b("sound", true); set(v) = set("sound", v)
     var tts: Boolean get() = b("tts", true); set(v) = set("tts", v)

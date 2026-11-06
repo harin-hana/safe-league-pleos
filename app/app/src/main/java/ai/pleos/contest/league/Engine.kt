@@ -85,6 +85,7 @@ object Engine {
     var prize: Prize? = null; private set
     var detail = false                       // 결과 화면 「내역 보기」 펼침
     var waypointAddedMin: Int? = null        // 「들러요」 뒤 내비가 돌려준 도착 지연(분)
+    var prizeChoice = 1                      // 다음 날 카드에서 고른 받을 것(기본 둘째, 아메리카노. 허브 11/07)
     var ambientFlashUntil = 0L; private set
     var demoNote: String? = null; private set   // 화면 구석 「데모 입력: 도착」
     var demoOpen = false                         // 데모 입력 버튼 줄 펼침
@@ -328,7 +329,8 @@ object Engine {
             val start = tripStart ?: LocalDateTime.now()
             val durationS = ((SystemClock.elapsedRealtime() - tripStartMs) / 1000).toInt()
             val etaS = if (demo) 35 * 60 else (dest?.remainTime ?: 0)
-            val b = LeagueClient.upload(prefs.driverId, prefs.nickname, leagueKey(), start.toLocalDate().toString(),
+            // 데모 모드는 시드의 시연 차량 'me'로 올린다(설치마다 바뀌는 id가 데모 리그에 행을 쌓아 「8명 중 3위」가 되던 것. 11/07)
+            val b = LeagueClient.upload(if (prefs.demo) "me" else prefs.driverId, prefs.nickname, leagueKey(), start.toLocalDate().toString(),
                 start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), r, durationS, etaS, eligible(r, durationS, etaS))
                 ?: Ghost.board(r.score)
             main.post { if (board == null || b.source == "서버") { board = b; Log.i(TAG, "순위 ${b.myRank}/${b.total} (${b.source})"); notifyUi() } }
@@ -349,8 +351,8 @@ object Engine {
 
     // 다음 날 카드(상금). 데모 입력 「다음 날」 또는 실제로 상금이 있을 때
     fun nextDay() {
-        prize = null; phase = Phase.PRIZE; waypointAddedMin = null; notifyUi()
-        main.postDelayed({ if (prize == null) { prize = Ghost.prize; Log.i(TAG, "상금 서버 응답 없음, 시드 쿠폰"); notifyUi() } }, 4000)
+        prize = null; phase = Phase.PRIZE; waypointAddedMin = null; prizeChoice = 1; notifyUi()
+        main.postDelayed({ if (prize == null) { prize = Ghost.prize; Log.i(TAG, "도장 서버 응답 없음, 시드 값"); notifyUi() } }, 4000)
         Thread {
             val p = LeagueClient.prize(prefs.driverId) ?: return@Thread
             main.post { prize = p; notifyUi() }
@@ -359,10 +361,10 @@ object Engine {
 
     // 「들러요」: 내비 경유지 추가
     fun stopBy() {
-        val p = prize ?: return
-        runCatching { navi?.addWaypoint(RequestWaypointInfo(p.lat, p.lng, p.shop, WaypointIndex.FIRST, "", "", "", "")) }
-            .onSuccess { Log.i(TAG, "들러요 → addWaypoint ${p.shop} (${p.lat}, ${p.lng})") }.onFailure { err("경유지 추가 $it") }
-        waypointAddedMin = waypointAddedMin ?: 6   // 내비 응답이 오면 실제 값으로 바뀜
+        val c = prize?.choices?.getOrNull(prizeChoice) ?: return
+        runCatching { navi?.addWaypoint(RequestWaypointInfo(c.lat, c.lng, c.name, WaypointIndex.FIRST, "", "", "", "")) }
+            .onSuccess { Log.i(TAG, "들러요 → addWaypoint ${c.name} (${c.lat}, ${c.lng})") }.onFailure { err("경유지 추가 $it") }
+        waypointAddedMin = waypointAddedMin ?: c.extraMin   // 내비 응답이 오면 실제 값으로 바뀜
         notifyUi()
     }
 

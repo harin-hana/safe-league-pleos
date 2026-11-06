@@ -70,7 +70,7 @@ class MainActivity : Activity() {
         val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         // 화면에 보이는 상태가 안 바뀌었으면 다시 그리지 않는다(에뮬레이터 렌더가 느려 터치를 잃는다)
         val key = listOf(Engine.phase, Engine.gear, Engine.beltWarning, Engine.board?.myRank, Engine.detail, Engine.demoNote, Engine.demoOpen, Engine.demo,
-            Engine.waypointAddedMin, Engine.prize?.shop, SystemClock.elapsedRealtime() < Engine.ambientFlashUntil, night, Engine.wiper,
+            Engine.waypointAddedMin, Engine.prize?.stamps, Engine.prizeChoice, SystemClock.elapsedRealtime() < Engine.ambientFlashUntil, night, Engine.wiper,
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), Engine.dest?.name).joinToString("|")
         if (key == lastKey) return
         lastKey = key
@@ -87,12 +87,14 @@ class MainActivity : Activity() {
             return
         }
         val root = FrameLayout(this).apply { setBackgroundColor(tone.g0) }
-        val col = column { addView(bar(), lp(MATCH, ki(52f))) }
-        val stage = column(16f) { pad(24f, 16f, 24f, 24f) }
+        // M19b 틀(장면 1, 4): 머리글 96 dp, 자격 확인 + 카드를 한 덩어리로 세로 가운데, 글자 줄 왼쪽 끝 96 dp. 도착(3a, 3b)은 M14 그대로
+        val wide = Engine.phase != Phase.RESULT
+        val col = column { addView(bar(wide), lp(MATCH, ki(if (wide) 74f else 52f))) }
+        val stage = if (wide) column { gravity = Gravity.CENTER_VERTICAL; pad(31f, 0f, 31f, 31f) } else column(16f) { pad(24f, 16f, 24f, 24f) }
         when (Engine.phase) {
-            Phase.IDLE, Phase.ARMED -> { stage.addView(qual(), lp(MATCH, 0, 1f)); if (Engine.phase == Phase.IDLE) stage.addView(departSheet(), lp(MATCH)) }
+            Phase.IDLE, Phase.ARMED -> { stage.addView(qual(), lp(MATCH)); if (Engine.phase == Phase.IDLE) stage.addView(departSheet(), lp(MATCH)) }
             Phase.RESULT -> { stage.addView(band(), lp(MATCH, 0, 1f)); stage.addView(if (Engine.detail) detailSheet() else resultSheet(), lp(MATCH)) }
-            Phase.PRIZE -> { stage.addView(qual(), lp(MATCH, 0, 1f)); stage.addView(prizeSheet(), lp(MATCH)) }
+            Phase.PRIZE -> { stage.addView(qual(), lp(MATCH)); stage.addView(prizeSheet(), lp(MATCH)) }
             else -> {}
         }
         col.addView(stage, lp(MATCH, 0, 1f))
@@ -106,46 +108,48 @@ class MainActivity : Activity() {
     }
 
     // ---------- 상단 바 ----------
-    private fun bar(): View {
+    private fun bar(wide: Boolean): View {
         val now = LocalDateTime.now()
         val left = row(10f) {
             addView(num(now.format(DateTimeFormatter.ofPattern("HH:mm")), 20f, tone.navT1, MEDIUM))
-            addView(text(now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN), 18f, tone.navT2))
+            addView(text(now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN), 20f, tone.navT2))
             val g = when (Engine.gear) { VehicleGear.GEAR_PARK -> "P"; VehicleGear.GEAR_DRIVE -> "D"; VehicleGear.GEAR_REVERSE -> "R"; VehicleGear.GEAR_NEUTRAL -> "N"; else -> "" }
-            addView(num(g, 17f, tone.navT1, MEDIUM).apply { gravity = Gravity.CENTER; background = rounded(tone.barChip, k(8f)) }, lp(ki(30f), ki(30f)).apply { marginStart = ki(4f) })
+            addView(num(g, 20f, tone.navT1, MEDIUM).apply { gravity = Gravity.CENTER; background = rounded(tone.barChip, k(8f)) }, lp(ki(37f), ki(37f)).apply { marginStart = ki(4f) })
         }
-        val pillText = when (Engine.phase) { Phase.IDLE -> "리그 대기"; Phase.ARMED -> "리그 중"; Phase.RESULT -> "도착"; Phase.PRIZE -> "리그 대기"; else -> "" }
+        val pillText = when (Engine.phase) { Phase.IDLE, Phase.PRIZE -> "출발 전"; Phase.ARMED -> "리그 중"; Phase.RESULT -> "도착"; else -> "" }
         val right = row(10f) {
-            addView(text("세이프 리그", 18f, tone.navT2).apply { setOnClickListener { if (Engine.gear != VehicleGear.GEAR_DRIVE) startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) } })
-            addView(pill(pillText, tone, accent = Engine.phase == Phase.ARMED), lp(WRAP, ki(30f)))
+            addView(text("세이프 리그", 20f, tone.navT2).apply { setOnClickListener { if (Engine.gear != VehicleGear.GEAR_DRIVE) startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) } })
+            addView(pill(pillText, tone, accent = Engine.phase == Phase.ARMED), lp(WRAP, ki(37f)))
         }
         return FrameLayout(this).apply {
-            pad(32f, 0f, 32f, 0f)
+            val side = if (wide) 74f else 32f
+            pad(side, 0f, side, 0f)
             addView(left, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_VERTICAL or Gravity.START))
             addView(right, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_VERTICAL or Gravity.END))
         }
     }
 
-    // ---------- 위쪽: 리그 자격 확인(출발, 다음 날) ----------
+    // ---------- 위쪽: 출발 조건(출발, 다음 날) ----------
     private fun qual(): View {
         val demo = Engine.demo
         val d = Engine.dest
         val slot = when (Engine.slot) { Engine.Slot.AM -> "아침"; Engine.Slot.PM -> "저녁"; else -> "리그 밖" }
         val items = listOf(
             "목적지" to if (demo) "회사" else (d?.name ?: "없음"),
-            "예상" to if (demo) "35분" else d?.let { "${it.remainTime / 60}분" } ?: "없음",
+            "예상 소요" to if (demo) "35분" else d?.let { "${it.remainTime / 60}분" } ?: "없음",
             "거리" to if (demo) "15 km" else d?.let { String.format("%.0f km", it.remainDistance / 1000.0) } ?: "없음",
             "시간대" to slot,
             "같은 길" to "${Engine.board?.total ?: 7}명",
         )
+        // 칸별 회색 그림(M19b 00:30판: 핀, 시계, 경로, 해 뜨는 모양, 사람). 벡터 드로어블은 목업 SVG 그대로
+        val icons = listOf(R.drawable.ck_pin, R.drawable.ck_clock, R.drawable.ck_route, R.drawable.ck_sunrise, R.drawable.ck_people)
         val checks = row {
             items.forEachIndexed { i, (name, value) ->
-                val ok = value != "없음" && value != "리그 밖"
                 addView(column {
                     pad(if (i == 0) 0f else 32f, 4f, 32f, 4f)
                     if (i > 0) background = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, 0f, 1f, bounds.height().toFloat(), android.graphics.Paint().apply { color = tone.navHair }) } }
                     addView(row(10f) {
-                        if (ok) addView(CheckDot(context, tone), lp(ki(24f), ki(24f)))
+                        addView(android.widget.ImageView(context).apply { setImageResource(icons[i]); setColorFilter(tone.navT2) }, lp(ki(24.6f), ki(24.6f)))
                         addView(text(name, 20f, tone.navT2))
                     })
                     addView(num(value, 56f, tone.navT1).apply { maxLines = 1 }, lp().apply { topMargin = ki(10f) })
@@ -153,11 +157,15 @@ class MainActivity : Activity() {
             }
         }
         return column {
-            pad(36f, 46f, 36f, 0f)
-            addView(text("리그 자격 확인", 15f, tone.navT2, MEDIUM).apply { letterSpacing = .08f })
+            pad(43f, 0f, 43f, 37f)   // M19b .qual: 글자 줄 96 dp, 카드 위 48 dp
+            addView(row(12f) { addView(CheckDot(context, tone, tone.ac, tone.acInk), lp(ki(34f), ki(34f))); addView(text("출발 조건을 모두 갖췄어요", 25f, tone.navT1, MEDIUM)) })
             addView(checks, lp(MATCH).apply { topMargin = ki(24f) })
+            addView(text("회사 300 m 안에서 P단에 두면 결과가 나와요.\n${limitMin()}분 안에 도착해야 순위에 들어가요.", 25f, tone.navT2).apply { lineHeight = ki(25f * 1.4f) }, lp().apply { topMargin = ki(22f) })
         }
     }
+
+    // 도착 기준 = 예상 소요의 120%(Engine.eligible과 같은 식). 데모 35분 → 42분
+    private fun limitMin(): Int { val etaS = if (Engine.demo) 35 * 60 else (Engine.dest?.remainTime ?: 0); return etaS * 12 / 10 / 60 }
 
     // ---------- 위쪽: 경로 띠(도착) ----------
     private fun band(): View {
@@ -170,14 +178,14 @@ class MainActivity : Activity() {
             addView(num("도착", 56f, tone.navT1))
             addView(text("${if (Engine.demo) "집" else Engine.dest?.name ?: "목적지"}, ${Score.fmtKm(r?.distanceKm ?: 0.0)} km, ${durMin}분", 20f, tone.navT2))
         }
-        val cap = if (Engine.detail) "점 ${j?.penalties?.size ?: 0}개는 감점이 난 자리" else if (Engine.demo) "예상 35분 안에 도착" else Engine.dest?.let { "예상 ${it.remainTime / 60}분 안에 도착" } ?: "도착"
+        val cap = if (Engine.detail) "점 ${count(j?.penalties?.size ?: 0)}가 감점이 난 자리예요" else if (Engine.demo || Engine.dest != null) "${limitMin()}분 안에 도착해 순위에 들었어요" else "도착"
         return column {
             pad(36f, 46f, 36f, 0f)
             addView(row(56f) {
                 addView(left, lp(ki(340f), WRAP))
                 addView(Track(context, tone, marks, dots), lp(0, ki(96f), 1f))
             }, lp(MATCH))
-            addView(text(cap, 20f, tone.navT2), lp().apply { topMargin = ki(20f); marginStart = ki(396f) })
+            addView(text(cap, 25f, tone.navT2), lp().apply { topMargin = ki(20f); marginStart = ki(396f) })
         }
     }
 
@@ -200,42 +208,45 @@ class MainActivity : Activity() {
     }
     // CSS line-height 1.45 줄 높이(한 줄 행)
     private fun View.lineBox(px: Float, padV: Float) { minimumHeight = ki(px * 1.45f + padV * 2) }
-    private fun eyebrow(s: String) = text(s, 15f, tone.t2, MEDIUM).apply { letterSpacing = .08f }
-    private fun h3(s: String) = text(s, 34f, tone.t1, MEDIUM).apply { lineHeight = ki(34f * 1.25f) }
-    private fun body(s: String) = text(s, 20f, tone.t2).apply { lineHeight = ki(20f * 1.45f) }
+    private fun eyebrow(s: String) = text(s, 20f, tone.t2, MEDIUM).apply { letterSpacing = .08f }
+    private fun h3(s: String) = text(s, 43f, tone.t1, MEDIUM).apply { lineHeight = ki(43f * 1.2f) }
+    private fun body(s: String) = text(s, 25f, tone.t2).apply { lineHeight = ki(25f * 1.45f) }
     private fun hairline() = View(this).apply { setBackgroundColor(tone.hair) }
+    // 위쪽 1px 선(순위표, 내역 줄, 받을 것 목록)
+    private fun topLine(color: Int) = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, 0f, bounds.width().toFloat(), 1f, android.graphics.Paint().apply { this.color = color }) } }
+    // M19b 카드(장면 1, 4): 안쪽 여백 56 dp, 모서리 32 dp. 글자 줄이 96 dp에서 시작
+    private fun card(gapPx: Float = 0f, init: LinearLayout.() -> Unit) = column(gapPx) { background = rounded(tone.g1, k(24.6f)); pad(43f, 43f, 43f, 43f); init() }
 
     // ---------- 장면 1: 출발 ----------
     private fun departSheet(): View {
-        val slotName = when (Engine.slot) { Engine.Slot.PM -> "저녁"; else -> "아침" }
-        val n = Engine.board?.total ?: 7
-        val names = (Engine.board?.rows?.filter { !it.me }?.map { it.name } ?: ai.pleos.contest.league.Ghost.names).joinToString(", ")
+        // 「함께 달리는 사람」은 앞 두 명 + 외 n명(26 dp에서 한 줄). 머리말 「오늘 아침 리그」는 위쪽 「시간대 아침」과 겹쳐 지움(M20 35번)
+        val others = Engine.board?.rows?.filter { !it.me }?.map { it.name } ?: ai.pleos.contest.league.Ghost.names
+        val names = others.take(2).joinToString(", ") + if (others.size > 2) " 외 ${others.size - 2}명" else ""
         val left = column(20f) {
-            addView(eyebrow("오늘 $slotName 리그"))
-            addView(h3("같은 길 ${n}명이\n함께 출발합니다"))
-            addView(body(if (Engine.demo || Engine.dest == null) "집에서 회사, 아침 06~10시" else "${Engine.dest!!.name}까지, ${if (Engine.slot == Engine.Slot.PM) "저녁 17~21시" else "아침 06~10시"}"), lp().apply { topMargin = -ki(8f) })
-            addView(text("함께 달리는 사람: $names", 15f, tone.t3))
+            addView(h3("가장 안전하게 도착한\n순서로 겨뤄요"))
+            addView(body("집 근처에서 회사 근처로 가는 분들끼리예요"), lp().apply { topMargin = -ki(8f) })
+            addView(text("함께 달리는 사람: $names", 20f, tone.t2))
         }
         val belt = !Engine.beltWarning
         val right = column(20f) {
             addView(row(20f) {
                 addView(seat("운전석", true), lp(ki(84f), WRAP)); addView(seat("동승석", belt), lp(ki(84f), WRAP))
             })
-            addView(body(if (belt) "착석 2명 모두 벨트. 벨트 올인" else "동승석 벨트 아직"))
+            addView(body(if (belt) "두 분 모두 벨트를 맸어요.\n결과에 +1이 더해져요." else "동승석 벨트 아직"))
         }
         val low = row(64f) {
-            addView(body("주행 중에는 아무것도 보여 주지 않습니다.\n결과는 도착해서 P단에 놓았을 때 한 번."), lp(0, WRAP, 1f))
+            addView(body("운전에 방해되지 않게 주행 중에는 비워 둬요."), lp(0, WRAP, 1f))
             addView(row(16f) {
-                addView(button("오늘은 쉬기", false, tone) { Engine.rest() }, lp(0, ki(72f), 1f))
-                addView(button("리그 참가", true, tone) { Engine.join() }, lp(0, ki(72f), 1f))
+                addView(button("이번엔 쉬기", false, tone) { Engine.rest() }, lp(0, ki(80f), 1f))
+                addView(button("참가하고 출발", true, tone) { Engine.join() }, lp(0, ki(80f), 1f))
             }, lp(0, WRAP, 1f))
         }
-        return sheet { addView(twoCols(left, right), lp(MATCH)); addView(low, lp(MATCH)) }
+        return card(28f) { addView(twoCols(left, right), lp(MATCH)); addView(low, lp(MATCH)) }
     }
 
     private fun seat(label: String, on: Boolean) = column(8f) {
         gravity = Gravity.CENTER_HORIZONTAL
-        addView(Seat(context, tone, on), lp(ki(84f), ki(72f))); addView(text(label, 15f, tone.t2))
+        addView(Seat(context, tone, on), lp(ki(84f), ki(72f))); addView(text(label, 20f, tone.t2))
     }
 
     // ---------- 장면 3a: 도착 결과, 순위 ----------
@@ -248,15 +259,15 @@ class MainActivity : Activity() {
             addView(column {
                 pad(0f, 0f, 0f, 10f)
                 addView(text(b?.let { "${it.total}명 중 ${it.myRank}위" } ?: "순위 확인 중", 26f, tone.t1, MEDIUM))
-                b?.ghostDiff?.let { d -> addView(text(if (d >= 0) "어제의 나보다 ${Score.fmt(d)} 위" else "어제의 나보다 ${Score.fmt(-d)} 아래", 17f, tone.t2)) }
+                b?.ghostDiff?.let { d -> val y = if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"; addView(text(if (d >= 0) "어제 ${y}보다 ${Score.fmt(d)} 올랐어요" else "어제 ${y}보다 ${Score.fmt(-d)} 내렸어요", 20f, tone.t2)) }
             })
         }
         val left = column(14f) {
             clipChildren = false
             addView(eyebrow("오늘 ${if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"} 리그 결과"))
             addView(hero, lp(MATCH))
-            addView(ladder(r), lp(MATCH, ki(84f)))
-            b?.morningLine?.let { addView(text("$it. 아침과 저녁은 따로 겨룹니다", 15f, tone.t3)) }
+            addView(ladder(r), lp(MATCH, ki(108f)))
+            b?.morning?.let { (rank, s) -> addView(text("오늘 아침 리그는 ${Score.fmt(s)}${Score.ro(s)} ${rank}위였어요.\n아침과 저녁은 따로 겨뤄요.", 20f, tone.t2)) }
         }
         val right = column {
             if (b == null) addView(text("순위 확인 중", 18f, tone.t3)) else {
@@ -264,14 +275,14 @@ class MainActivity : Activity() {
                 val top = b.rows.filter { it.rank <= 3 || it.me }
                 top.forEach { addView(rankRow(it), lp(MATCH)) }
                 val rest = b.rows.filter { it !in top }
-                if (rest.isNotEmpty()) addView(rankDim(rest.joinToString(", ") { it.name }, "${rest.first().rank}~${rest.last().rank}위"), lp(MATCH))
+                if (rest.isNotEmpty()) addView(rankDim(rest.first().name + if (rest.size > 1) " 외 ${rest.size - 1}명" else "", "${rest.first().rank}~${rest.last().rank}위"), lp(MATCH))
             }
         }
         val low = row(64f) {
             addView(prizeLine(b?.league != false, long = true), lp(0, WRAP, 1f))
             addView(row {
-                addView(text("내역 보기", 20f, tone.t1), lp(0, WRAP, 1f))
-                addView(text("감점 ${r.penaltyCount}건, 가산 ${r.bonus.values.count { it > 0 }}건 ⌄", 17f, tone.t2))
+                addView(text("내역 보기", 25f, tone.t1), lp(0, WRAP, 1f))
+                addView(text("감점 ${r.penaltyCount}건, 가산 ${r.bonus.values.count { it > 0 }}건 ⌄", 20f, tone.t2))
                 setOnClickListener { Engine.detail = true; render() }
             }, lp(0, WRAP, 1f))
         }
@@ -288,25 +299,25 @@ class MainActivity : Activity() {
         listOf(5, 10, 20).filter { it <= r.comboMax }.forEach { items += "깜빡이\n콤보 $it" to true }
         // 데모는 실제로 1km 남짓만 달려 클린 km가 안 쌓인다. 데모 고정값(집, 15 km, 26분)처럼 M14 3a 값 5개를 쓴다
         val cleanKm = if (Engine.demo) 5 else r.cleanKm.toInt()
-        listOf(5, 10).filter { it <= cleanKm }.forEach { items += "클린 1km\n${it}개" to true }
+        listOf(5, 10).filter { it <= cleanKm }.forEach { items += "감점 0\n${it} km" to true }
         r.bonus.filter { it.value > 0 && it.key != Bonus.B1 && it.key != Bonus.B2 }.keys.forEach { items += Score.BONUS_LABEL.getValue(it).replace(" ", "\n") to true }
-        val next = if (r.bonus[Bonus.B2] == 1) "클린\n위크" else "클린\n주행"
+        val next = if (r.bonus[Bonus.B2] == 1) "클린\n위크" else "감점 0\n도착"
         val reached = items.size
         items += next to false
-        val heights = listOf(36f, 52f, 68f, 84f)
+        val heights = listOf(60f, 76f, 92f, 108f)   // M20: 글자 20에 두 줄이 들어가게(계단 간격 16 그대로)
         return row(8f) {
             gravity = Gravity.BOTTOM
             clipChildren = false
             items.forEachIndexed { i, (label, ok) ->
                 val last = ok && i == reached - 1 && r.bonusSum > 0
-                val h = if (!ok) 36f else heights[minOf(i, 3)]
-                // 낮은 칸(36)은 두 줄 글자가 칸보다 커서 M14처럼 위아래로 넘쳐 보이게 한다(칸이 글자를 자르지 않게)
-                val tv = text(label, 15f, if (last) tone.acInk else tone.t2, if (last) MEDIUM else Typeface.DEFAULT).apply {
-                    gravity = Gravity.CENTER; lineHeight = ki(15f * 1.3f); pad(4f, 0f, 4f, 0f)
+                val h = if (!ok) 60f else heights[minOf(i, 3)]
+                // 낮은 칸(60)은 두 줄 글자가 칸보다 커서 M14처럼 위아래로 넘쳐 보이게 한다(칸이 글자를 자르지 않게)
+                val tv = text(label, 20f, if (last) tone.acInk else tone.t2, if (last) MEDIUM else Typeface.DEFAULT).apply {
+                    gravity = Gravity.CENTER; lineHeight = ki(20f * 1.3f); pad(4f, 0f, 4f, 0f)
                 }
                 addView(FrameLayout(context).apply {
                     clipChildren = false; background = rounded(if (last) tone.ac else tone.g2, k(10f))
-                    addView(tv, FrameLayout.LayoutParams(MATCH, ki(84f), Gravity.CENTER))   // 칸보다 크게 재고 가운데에(WRAP이면 칸 높이로 잘림)
+                    addView(tv, FrameLayout.LayoutParams(MATCH, ki(108f), Gravity.CENTER))   // 칸보다 크게 재고 가운데에(WRAP이면 칸 높이로 잘림)
                     if (!ok) alpha = .35f
                     else { alpha = 0f; animate().alpha(1f).setStartDelay(220L * i).setDuration(260).withStartAction { if (i > 0) Engine.ladderTick() }.start() }
                 }, lp(0, ki(h), 1f))
@@ -315,21 +326,20 @@ class MainActivity : Activity() {
     }
 
     private fun rankRow(r: ai.pleos.contest.league.Row) = row {
-        pad(0f, 8f, 0f, 8f); lineBox(22f, 8f)
-        background = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, 0f, bounds.width().toFloat(), 1f, android.graphics.Paint().apply { color = tone.hair }) } }
-        addView(num("${r.rank}", 18f, if (r.me) tone.ac else tone.t3, Typeface.DEFAULT), lp(ki(26f), WRAP))
-        addView(text(if (r.me) "나" else r.name, 18f, if (r.me) tone.ac else tone.t1), lp(0, WRAP, 1f))
-        addView(num(String.format(Locale.US, "%.1f", r.score), 22f, if (r.me) tone.t1 else tone.t2, Typeface.DEFAULT))   // 순위표는 M14처럼 100.0
+        pad(0f, 8f, 0f, 8f); lineBox(25f, 8f)
+        background = topLine(tone.hair)
+        addView(num("${r.rank}", 25f, if (r.me) tone.ac else tone.t3, Typeface.DEFAULT), lp(ki(30f), WRAP))
+        addView(text(if (r.me) "나" else r.name, 25f, if (r.me) tone.ac else tone.t1), lp(0, WRAP, 1f))
+        addView(num(String.format(Locale.US, "%.1f", r.score), 25f, if (r.me) tone.t1 else tone.t2, Typeface.DEFAULT))   // 순위표는 M14처럼 100.0
     }
     private fun rankDim(names: String, right: String) = row {
-        pad(0f, 8f, 0f, 8f); lineBox(15f, 8f)
-        addView(text(names, 15f, tone.t3), lp(0, WRAP, 1f)); addView(num(right, 15f, tone.t3, Typeface.DEFAULT))
+        pad(0f, 8f, 0f, 8f); lineBox(20f, 8f)
+        addView(text(names, 20f, tone.t3), lp(0, WRAP, 1f)); addView(num(right, 20f, tone.t3, Typeface.DEFAULT))
     }
-    private fun prizeLine(league: Boolean, long: Boolean) = row(8f) {
+    private fun prizeLine(league: Boolean, long: Boolean) = column {
         if (league) {
-            addView(text("이번 주 리그 상금", 17f, tone.t1, MEDIUM))
-            addView(text(if (long) "길 위 가게 쿠폰. 월~금 상위 3회 합으로 월요일에" else "길 위 가게 쿠폰", 17f, tone.t2))
-        } else addView(text("고스트 리그. 같은 길 3명이 모이면 상금이 열립니다", 17f, tone.t2))
+            addView(text("이번 주 상위 3명은 도장을 하나 받아요", 20f, tone.t1, MEDIUM))   // 허브 확정 11/07: 한 문장만(3a, 3b 같음)
+        } else addView(text("고스트 리그. 같은 길 3명이 모이면 도장이 열립니다", 20f, tone.t2))
     }
 
     // ---------- 장면 3b: 내역 펼침 ----------
@@ -348,15 +358,14 @@ class MainActivity : Activity() {
         // M14 .col.r gap 10은 「내역」 머리와 줄 묶음 사이에만. 줄끼리는 붙어 있다
         val rows = column {
             r.lines.forEach { l ->
-                // 「15.0 km로 환산」 → M14 「15 km로 환산」(문구는 Score가 만들어 화면에서만 맞춘다)
-                addView(lineRow(l.label.replace(".0 km", " km"), (if (l.plus) "+" else "") + Score.fmt(l.value), if (l.plus) tone.t1 else tone.t2, tone.hair), lp(MATCH))
+                addView(lineRow(l.label, (if (l.plus) "+" else "") + Score.fmt(l.value), if (l.plus) tone.t1 else tone.t2, tone.hair), lp(MATCH))
             }
-            val formula = "100 − ${Score.fmt(r.converted)}${if (r.bonusSum > 0) " + ${Score.fmt(r.bonusSum)}" else ""} = ${Score.fmt(r.score)}"
-            addView(lineRow("리그 결과", formula, tone.ac, tone.t3, 24f), lp(MATCH))
+            val formula = "100 − ${Score.fmt(r.converted)}${if (r.bonusSum > 0) " + ${Score.fmt(r.bonusSum)}" else ""}"
+            addView(lineRow(if (r.bonusSum > 0) "감점은 빼고 가산은 더해요" else "감점은 빼요", formula, tone.ac, tone.t3), lp(MATCH))
         }
         val right = column(10f) {
-            addView(row { pad(0f, 0f, 0f, 4f); lineBox(20f, 0f); minimumHeight += ki(4f)
-                addView(text("내역", 20f, tone.t1), lp(0, WRAP, 1f)); addView(text("접기 ⌃", 17f, tone.t2)); setOnClickListener { Engine.detail = false; render() } })
+            addView(row { pad(0f, 0f, 0f, 4f); lineBox(25f, 0f); minimumHeight += ki(4f)
+                addView(text("내역", 25f, tone.t1), lp(0, WRAP, 1f)); addView(text("접기 ⌃", 20f, tone.t2)); setOnClickListener { Engine.detail = false; render() } })
             addView(rows, lp(MATCH))
         }
         return sheet {
@@ -366,39 +375,55 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun lineRow(label: String, value: String, valueColor: Int, lineColor: Int, valuePx: Float = 22f) = row {
+    // 「점 세 개」처럼 작은 수는 우리말로
+    private fun count(n: Int) = listOf("한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉").getOrNull(n - 1)?.let { "$it 개" } ?: "${n}개"
+
+    private fun lineRow(label: String, value: String, valueColor: Int, lineColor: Int, valuePx: Float = 25f) = row {
         pad(0f, 9f, 0f, 9f); lineBox(valuePx, 9f)
-        background = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, 0f, bounds.width().toFloat(), 1f, android.graphics.Paint().apply { color = lineColor }) } }
-        addView(text(label, 19f, tone.t1), lp(0, WRAP, 1f)); addView(num(value, valuePx, valueColor, Typeface.DEFAULT))
+        background = topLine(lineColor)
+        addView(text(label, 25f, tone.t1), lp(0, WRAP, 1f)); addView(num(value, valuePx, valueColor, Typeface.DEFAULT))
     }
 
-    // ---------- 장면 4: 다음 날 카드 ----------
+    // ---------- 장면 4: 다음 날 카드(M19b 안 C, 도장 세 개) ----------
+    // 네 줄: 지난주 순위, 요일 근거, 도장 3칸 + 받을 것(셋이 차면 고름, 아니면 상태 한 줄), 다음 행동 + 단추
     private fun prizeSheet(): View {
-        val p = Engine.prize ?: return sheet {}
-        val left = column(20f) {
-            addView(eyebrow(p.title))
-            addView(h3("3위, 상금이\n도착했습니다"))
-            addView(body("월~금 상위 3회 합 ${Score.fmt(p.sum)}"), lp().apply { topMargin = -ki(8f) })
-        }
-        // 왼쪽 강조 띠는 배경 겹으로(띠를 MATCH 높이 뷰로 두면 쿠폰이 시트 전체 높이로 늘어나 위쪽 자격 확인과 버튼을 밀어냄)
-        val coupon = column(6f) {
-            background = android.graphics.drawable.LayerDrawable(arrayOf(rounded(tone.g2, k(16f)), android.graphics.drawable.ColorDrawable(tone.ac))).apply {
-                setLayerWidth(1, ki(6f)); setLayerGravity(1, Gravity.START or Gravity.FILL_VERTICAL)
-            }
-            clipToOutline = true
-            pad(24f, 24f, 24f, 24f)
-            addView(text(p.shop, 26f, tone.t1, MEDIUM)); addView(text(p.item, 20f, tone.t1))
-            addView(text(p.meta, 17f, tone.t2), lp().apply { topMargin = ki(6f) })
+        val p = Engine.prize ?: return card {}
+        val full = p.stamps >= 3
+        val stamps = row(12f) { repeat(3) { i -> addView(Stamp(context, tone, i, i < p.stamps), lp(ki(55f), ki(55f))) } }
+        val third = row(31f) {
+            if (full) { gravity = Gravity.TOP; addView(stamps); addView(choiceList(p), lp(0, WRAP, 1f)) }
+            else { addView(stamps); addView(body("도장 세 개가 되면 안전 점검이나 아메리카노 중 하나를 골라요.").apply { setTextColor(tone.t1) }, lp(0, WRAP, 1f)) }
         }
         val added = Engine.waypointAddedMin
-        val low = row(64f) {
-            addView(body(if (added != null) "경유지 추가, 도착 +${added}분" else "들르면 내비 경유지에 바로 들어갑니다."), lp(0, WRAP, 1f))
-            addView(row(16f) {
-                addView(button("다음에", false, tone) { Engine.later() }, lp(0, ki(72f), 1f))
-                addView(button("들러요", true, tone) { Engine.stopBy() }, lp(0, ki(72f), 1f))
-            }, lp(0, WRAP, 1f))
+        val actText = if (added != null) "경유지 추가, 도착 +${added}분" else if (full) "고른 곳을 내비에 더할까요?" else "다음 주에 한 번 더 3위 안에 들면 채워져요."
+        val act = row(31f) {
+            addView(body(actText), lp(0, WRAP, 1f))
+            addView(row(15f) {
+                addView(button("다음에", false, tone) { Engine.later() }, lp(ki(261f), ki(80f)))
+                if (full) addView(button("들러요", true, tone) { Engine.stopBy() }, lp(ki(261f), ki(80f)))
+            })
         }
-        return sheet { addView(twoCols(left, coupon), lp(MATCH)); addView(low, lp(MATCH)) }
+        return card {
+            addView(h3("지난주 리그 ${p.rank}위로 마쳤어요"))
+            addView(body("가장 안전했던 ${p.days} 세 번으로 정해졌어요."), lp().apply { topMargin = ki(9f) })
+            addView(hairline(), lp(MATCH, 1).apply { topMargin = ki(31f) }); addView(third, lp(MATCH).apply { topMargin = ki(31f) })
+            addView(hairline(), lp(MATCH, 1).apply { topMargin = ki(31f) }); addView(act, lp(MATCH).apply { topMargin = ki(31f) })
+        }
+    }
+
+    // 받을 것 목록(M19b .list .it): 고른 줄은 금색 체크 + 밝은 글자, 누르면 바뀜
+    private fun choiceList(p: ai.pleos.contest.league.Prize) = column {
+        p.choices.forEachIndexed { i, c ->
+            val mine = i == Engine.prizeChoice
+            addView(row(12f) {
+                pad(0f, if (i == 0) 0f else 15f, 0f, if (i == p.choices.lastIndex) 0f else 15f)
+                if (i > 0) background = topLine(tone.hair)
+                if (mine) addView(CheckDot(context, tone, tone.ac, tone.acInk), lp(ki(34f), ki(34f))) else addView(View(context), lp(ki(34f), ki(34f)))
+                addView(text(c.name, 25f, if (mine) tone.t1 else tone.t2), lp(0, WRAP, 1f))
+                addView(text("${Score.fmtKm(c.km)} km, 들르면 ${c.extraMin}분 더", 20f, tone.t2), lp().apply { marginEnd = ki(18f) })
+                setOnClickListener { Engine.prizeChoice = i; Engine.notifyUi() }
+            }, lp(MATCH))
+        }
     }
 
     // ---------- 데모 입력 ----------

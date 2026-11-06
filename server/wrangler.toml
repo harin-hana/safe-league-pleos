@@ -1,0 +1,8 @@
+name = "safe-league"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "safe-league"
+database_id = "576cabb8-96c5-4e3c-a966-979c8f4358ca"

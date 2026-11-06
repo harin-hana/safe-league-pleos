@@ -88,26 +88,46 @@ const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
 fun View.pad(l: Float, t: Float, r: Float, b: Float) = setPadding(context.ki(l), context.ki(t), context.ki(r), context.ki(b))
 
-// M14 .btn: 높이 72, 모서리 16, 글자 22 medium
-fun Context.button(label: String, primary: Boolean, tone: Tone, onClick: () -> Unit) = text(label, 22f, if (primary) tone.acInk else tone.t1, MEDIUM).apply {
-    gravity = Gravity.CENTER; background = rounded(if (primary) tone.ac else tone.g2, k(16f))
+// M14 .btn: 높이 72, 모서리 16, 글자 22 medium → M20 권장 25(32 dp)
+fun Context.button(label: String, primary: Boolean, tone: Tone, onClick: () -> Unit) = text(label, 25f, if (primary) tone.acInk else tone.t1, MEDIUM).apply {
+    gravity = Gravity.CENTER; background = rounded(if (primary) tone.ac else tone.g2, k(17f))   // M19b 모서리 22 dp
     setOnClickListener { onClick() }
 }
 
-// M14 .pill(상단 바)
-fun Context.pill(label: String, tone: Tone, accent: Boolean = false) = text(label, 15f, if (accent) tone.ac else tone.navT2).apply {
-    gravity = Gravity.CENTER; background = rounded(if (accent) tone.acDim else tone.barPill, k(999f)); pad(12f, 0f, 12f, 0f); minHeight = ki(30f)
+// M14 .pill(상단 바) → M20 권장 글자 20(26 dp), 높이 36
+fun Context.pill(label: String, tone: Tone, accent: Boolean = false) = text(label, 20f, if (accent) tone.ac else tone.navT2).apply {
+    gravity = Gravity.CENTER; background = rounded(if (accent) tone.acDim else tone.barPill, k(999f)); pad(14f, 0f, 14f, 0f); minHeight = ki(36f)
 }
 
 // 체크 동그라미(M14 .ck span i)
-class CheckDot(ctx: Context, private val tone: Tone) : View(ctx) {
+// 기본은 상단 바 색(바탕 navT1, 체크 g0). 금색 체크는 (ac, acInk)
+class CheckDot(ctx: Context, private val tone: Tone, private val fill: Int = tone.navT1, private val ink: Int = tone.g0) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
         val r = width / 2f
-        p.style = Paint.Style.FILL; p.color = tone.navT1; c.drawCircle(r, r, r, p)
-        p.style = Paint.Style.STROKE; p.color = tone.g0; p.strokeWidth = width * 0.17f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
+        p.style = Paint.Style.FILL; p.color = fill; c.drawCircle(r, r, r, p)
+        p.style = Paint.Style.STROKE; p.color = ink; p.strokeWidth = width * 0.17f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
         val path = android.graphics.Path().apply { moveTo(width * .29f, height * .53f); lineTo(width * .45f, height * .69f); lineTo(width * .72f, height * .36f) }
         c.drawPath(path, p)
+    }
+}
+
+// 도장 칸(M19b .stamps i): 72 dp 원. 찍힌 칸은 금색 바탕에 그림(0 벨트, 1 깜빡이, 2 전조등. SVG 36 기준을 칸의 절반 크기로), 빈 칸은 회색 테두리만
+class Stamp(ctx: Context, private val tone: Tone, private val kind: Int, private val on: Boolean) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c: Canvas) {
+        val r = width / 2f
+        if (!on) { p.style = Paint.Style.STROKE; p.strokeWidth = context.k(1.5f); p.color = tone.t3; c.drawCircle(r, r, r - p.strokeWidth / 2, p); return }
+        p.style = Paint.Style.FILL; p.color = tone.ac; c.drawCircle(r, r, r, p)
+        c.save(); c.translate(width / 4f, height / 4f); c.scale(width / 72f, height / 72f)
+        p.style = Paint.Style.STROKE; p.color = tone.acInk; p.strokeWidth = 2.4f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
+        val path = android.graphics.Path()
+        when (kind) {
+            0 -> { c.drawCircle(18f, 9.5f, 3.5f, p); path.moveTo(10f, 29f); path.lineTo(10f, 24f); path.cubicTo(10f, 19.5f, 13.5f, 17f, 18f, 17f); path.cubicTo(22.5f, 17f, 26f, 19.5f, 26f, 24f); path.lineTo(26f, 29f); path.moveTo(13.5f, 18f); path.lineTo(25f, 28f) }
+            1 -> { path.moveTo(8f, 18f); path.lineTo(16f, 10f); path.lineTo(16f, 14.5f); path.lineTo(28f, 14.5f); path.lineTo(28f, 21.5f); path.lineTo(16f, 21.5f); path.lineTo(16f, 26f); path.close() }
+            else -> { path.moveTo(21f, 9f); path.cubicTo(29f, 9f, 29f, 27f, 21f, 27f); path.close(); for (y in listOf(12f, 18f, 24f)) { path.moveTo(7f, y); path.lineTo(16f, y) } }
+        }
+        c.drawPath(path, p); c.restore()
     }
 }
 
@@ -136,7 +156,7 @@ class Track(ctx: Context, private val tone: Tone, private val marks: List<Pair<S
     override fun onDraw(c: Canvas) {
         val y = context.k(56f) + 1f
         p.style = Paint.Style.FILL; p.color = tone.t3; c.drawRect(0f, y - 1f, width.toFloat(), y + 1f, p)
-        p.textSize = context.k(15f); p.textAlign = Paint.Align.CENTER; p.typeface = context.font(Typeface.DEFAULT, numeric = false)
+        p.textSize = context.k(20f); p.textAlign = Paint.Align.CENTER; p.typeface = context.font(Typeface.DEFAULT, numeric = false)
         marks.forEach { (label, f) ->
             p.color = tone.t2; c.drawRect(width * f - 1f, context.k(44f), width * f + 1f, context.k(70f), p)
             c.drawText(label, width * f, context.k(28f), p)

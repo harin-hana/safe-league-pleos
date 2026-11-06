@@ -35,7 +35,7 @@ class JudgeReplayTest {
         assertEquals(2.3, r.converted, 1e-9)
         assertEquals(2.0, r.bonusSum, 1e-9)
         assertEquals(99.7, r.score, 1e-9)
-        assertEquals(listOf("급제동 1회", "급제동 1회, 정체 구간이라 절반", "깜빡이 없는 차선 변경 1회", "15.0 km로 환산", "벨트 올인", "빗길 전조등"),
+        assertEquals(listOf("급제동 1회", "급제동 1회, 정체 구간이라 절반", "깜빡이 없는 차선 변경 1회", "감점 3.5를 달린 거리에 맞추면", "출발 전 모두 벨트", "빗길 전조등"),
             r.lines.map { it.label })
         r.lines.forEach { l -> assert(!l.label.contains('·') && !l.label.contains('—') && !l.label.contains("점수")) { l.label } }
     }

@@ -30,12 +30,12 @@ class SettingsActivity : Activity() {
         root.addView(FrameLayout(this).apply {
             pad(32f, 0f, 32f, 0f)
             addView(text("세이프 리그", 18f, tone.navT2).apply { setOnClickListener { finish() } }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_VERTICAL or Gravity.START))
-            addView(pill("설정", tone), FrameLayout.LayoutParams(WRAP, ki(30f), Gravity.CENTER_VERTICAL or Gravity.END))
+            addView(pill("설정", tone), FrameLayout.LayoutParams(WRAP, ki(36f), Gravity.CENTER_VERTICAL or Gravity.END))
         }, lp(MATCH, ki(52f)))
         val body = row { setBackgroundColor(tone.nav) }
         val menu = column { pad(0f, 24f, 0f, 0f) }
         listOf("리그", "소리와 빛", "내 차", "데모").forEachIndexed { i, m ->
-            menu.addView(text(m, 22f, if (i == 0) tone.navT1 else tone.navT2).apply {
+            menu.addView(text(m, 25f, if (i == 0) tone.navT1 else tone.navT2).apply {
                 pad(32f, 18f, 32f, 18f)
                 if (i == 0) { background = rounded(tone.g0, k(16f)) }
             }, lp(MATCH).apply { if (i == 0) marginEnd = ki(16f) })
@@ -43,14 +43,14 @@ class SettingsActivity : Activity() {
         body.addView(menu, lp(ki(320f), MATCH))
         val list = column { background = rounded(tone.g1, k(24f)); pad(36f, 6f, 36f, 0f) }
         fun toggle(name: String, sub: String, on: Boolean, set: (Boolean) -> Unit) = list.addView(item(name, sub, Toggle(this, tone, on) { set(it); render() }), lp(MATCH))
-        toggle("출발 때 리그 자동 참가", "P단 카드를 건너뛰고 바로 참가", p.autoJoin) { p.autoJoin = it }
-        toggle("콤보 효과음", "고비마다 한 번", p.sound) { p.sound = it }
-        toggle("TTS 한 마디", "「콤보 10」처럼 짧게", p.tts) { p.tts = it }
-        toggle("앰비언트 반짝", "고비마다 한 번", p.ambient) { p.ambient = it }
-        toggle("동승자 심판석", "동승석에 사람이 있으면 동승자 화면에만", false) { }
-        list.addView(item("차종", "조향비와 축거, 급핸들 판정에 씀", text("조향비 ${fmt(p.steerRatio)}, 축거 ${fmt(p.wheelbase)} m", 19f, tone.t2)), lp(MATCH))
+        toggle("출발 때 리그 자동 참가", "출발 안내 화면 없이 바로 참가해요", p.autoJoin) { p.autoJoin = it }
+        toggle("콤보 효과음", "콤보 단계에 오를 때마다 한 번 울려요", p.sound) { p.sound = it }
+        toggle("음성 한마디", "「콤보 10」처럼 짧게 말해요", p.tts) { p.tts = it }
+        toggle("실내 조명 반짝", "콤보 단계에 오를 때마다 한 번 반짝여요", p.ambient) { p.ambient = it }
+        toggle("동승자 심판석", "동승석에 앉은 분 화면에만 콤보를 바로 보여 드려요", false) { }
+        list.addView(item("차종", "차에 맞게 고르면 급핸들을 더 정확히 가려내요", text("기본값 ›", 20f, tone.t2)), lp(MATCH))
         list.addView(item("핸들 부호", "에뮬레이터는 콘솔과 반대라 뒤집어 읽음", choice(listOf("에뮬레이터" to -1f, "실차" to 1f), p.steeringSign) { p.steeringSign = it; render() }), lp(MATCH))
-        list.addView(item("별명", "리그에 보이는 이름", edit(p.nickname) { p.nickname = it }), lp(MATCH))
+        list.addView(item("별명", "순위표에 보이는 이름이에요", edit(p.nickname) { p.nickname = it }), lp(MATCH))
         list.addView(item("리그 서버", "비워 두면 고스트 리그", edit(p.serverUrl, wide = true) { p.serverUrl = it; Engine.reload() }), lp(MATCH))
         toggle("데모 모드", "화면 구석에 「데모 입력」 표시. 정체 판정 창 60초를 10초로", p.demo) { p.demo = it; Engine.resetForDemo() }
         list.addView(text("Vehicle SDK 2.3.2, NaviHelper 3.0.5. AAOS 속도 ${if (Engine.aaosOk) "연결" else "미연결"}. ${Engine.lastError ?: ""}", 15f, tone.t3).apply { pad(0f, 14f, 0f, 20f) })
@@ -64,20 +64,20 @@ class SettingsActivity : Activity() {
     private fun item(name: String, sub: String, right: View) = row {
         pad(0f, 15f, 0f, 15f)
         background = object : android.graphics.drawable.ColorDrawable() { override fun draw(c: android.graphics.Canvas) { c.drawRect(0f, bounds.height() - 1f, bounds.width().toFloat(), bounds.height().toFloat(), android.graphics.Paint().apply { color = tone.hair }) } }
-        addView(column(2f) { addView(text(name, 22f, tone.t1)); addView(text(sub, 17f, tone.t2)) }, lp(0, WRAP, 1f))
+        addView(column(2f) { addView(text(name, 25f, tone.t1)); addView(text(sub, 20f, tone.t2)) }, lp(0, WRAP, 1f))
         addView(right)
     }
 
     private fun choice(opts: List<Pair<String, Float>>, cur: Float, pick: (Float) -> Unit) = row(8f) {
         opts.forEach { (name, v) ->
-            addView(text(name, 17f, if (v == cur) tone.acInk else tone.t2).apply {
+            addView(text(name, 20f, if (v == cur) tone.acInk else tone.t2).apply {
                 background = rounded(if (v == cur) tone.ac else tone.g3, k(999f)); pad(14f, 6f, 14f, 6f); setOnClickListener { pick(v) }
             })
         }
     }
 
     private fun edit(value: String, wide: Boolean = false, set: (String) -> Unit) = EditText(this).apply {
-        setText(value); setTextColor(tone.t1); setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 19f * ZOOM); setSingleLine()
+        setText(value); setTextColor(tone.t1); setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20f * ZOOM); setSingleLine()
         inputType = InputType.TYPE_CLASS_TEXT; background = rounded(tone.g3, k(10f)); pad(12f, 6f, 12f, 6f)
         minWidth = ki(if (wide) 420f else 200f)
         setOnFocusChangeListener { _, has -> if (!has) set(text.toString().trim()) }

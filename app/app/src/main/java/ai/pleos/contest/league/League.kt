@@ -11,16 +11,18 @@ data class Row(val rank: Int, val name: String, val score: Double, val me: Boole
 data class Board(
     val rows: List<Row>, val myRank: Int, val total: Int,
     val league: Boolean,              // 3명 이상(상금 있음). 아니면 고스트 리그
-    val morningLine: String?,         // 「오늘 아침 리그 2위 99.7」. 아침 기록이 있을 때만
+    val morning: Pair<Int, Double>?,  // 아침 (순위, 결과). 아침 기록이 있을 때만. 문구는 화면이 만든다
     val ghostDiff: Double?,           // 어제의 나와 차이(+면 위)
     val source: String,               // "서버" 또는 "고스트"
 )
-data class Prize(val title: String, val sum: Double, val shop: String, val item: String, val meta: String, val lat: Double, val lng: Double)
+// 다음 날 카드(M19b 안 C). 주간 3위 안에 들면 도장 하나, 셋이 차면 받을 것 둘 중 하나를 고른다
+data class Choice(val name: String, val km: Double, val extraMin: Int, val lat: Double, val lng: Double)
+data class Prize(val rank: Int, val days: String, val stamps: Int, val choices: List<Choice>)
 
-// 앱 안 시드(repo_draft/server/seed_demo.sql과 같은 값). 서버가 없거나 막히면 이걸로 고스트 리그.
+// 앱 안 시드(server/seed_demo.sql과 같은 값). 서버가 없거나 막히면 이걸로 고스트 리그.
 object Ghost {
     val pm = listOf("아침첫차" to 100.0, "올림픽대로" to 98.8, "깜빡이장인" to 98.1, "비오는날" to 97.4, "월요일만" to 96.7, "아침7시42" to 96.0)
-    val morningMe = 2 to 99.7
+    val morningMe = 2 to 99.3   // 저녁 99.7과 다른 값으로(같은 숫자가 두 번 보이지 않게)
     const val yesterdayMe = 99.3
     val names get() = pm.map { it.first }
 
@@ -29,10 +31,11 @@ object Ghost {
         val rows = all.mapIndexed { i, (n, s) -> Row(i + 1, n, s, me = n == "나") }
         val league = all.size >= 3
         return Board(rows, rows.first { it.me }.rank, rows.size, league,
-            "오늘 아침 리그 ${morningMe.first}위 ${Score.fmt(morningMe.second)}", Score.round1(myScore - yesterdayMe), "고스트")
+            morningMe, Score.round1(myScore - yesterdayMe), "고스트")
     }
 
-    val prize = Prize("지난주 왕중왕", 298.6, "길 위 카페", "아메리카노 한 잔", "출근길 위 2.3 km 지점. 들르면 도착 +6분. 이번 주 안에", 37.4979, 127.0276)
+    // 데모 값: 도장 세 개가 찬 주. 블루핸즈는 제휴 가정(좌표는 예시)
+    val prize = Prize(3, "월, 수, 금", 3, listOf(Choice("블루핸즈 안전 점검", 4.1, 12, 37.5048, 127.0251), Choice("길 위 카페 아메리카노 한 잔", 2.3, 6, 37.4979, 127.0276)))
 }
 
 // 리그 서버(Cloudflare Workers + D1). 주행 중 통신 없음. 도착 때 POST /trip 한 번, 다음 출발 카드에서 GET /prize 한 번.
@@ -56,7 +59,7 @@ object LeagueClient {
             val j = JSONObject(http("POST", "/trip", body.toString()))
             val rows = j.getJSONArray("rows").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { Row(it.getInt("rank"), it.getString("name"), it.getDouble("score"), it.optBoolean("me")) } } }
             Board(rows, j.getInt("my_rank"), j.getInt("total"), j.getBoolean("league"),
-                j.optString("morning_line").takeIf { it.isNotBlank() }, if (j.isNull("ghost_diff")) null else j.getDouble("ghost_diff"), "서버")
+                j.optInt("morning_rank").takeIf { it > 0 }?.let { it to j.getDouble("morning_score") }, if (j.isNull("ghost_diff")) null else j.getDouble("ghost_diff"), "서버")
         }.onFailure { Log.w(Engine.TAG, "서버 업로드 실패, 고스트 리그로: $it") }.getOrNull()
     }
 
@@ -65,7 +68,8 @@ object LeagueClient {
         return runCatching {
             val j = JSONObject(http("GET", "/prize/$driverId"))
             if (!j.optBoolean("has")) return null
-            Prize(j.getString("title"), j.getDouble("sum"), j.getString("shop"), j.getString("item"), j.getString("meta"), j.getDouble("lat"), j.getDouble("lng"))
+            val ch = j.getJSONArray("choices").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { Choice(it.getString("name"), it.getDouble("km"), it.getInt("extra_min"), it.getDouble("lat"), it.getDouble("lng")) } } }
+            Prize(j.getInt("rank"), j.getString("days"), j.getInt("stamps"), ch)
         }.onFailure { Log.w(Engine.TAG, "상금 조회 실패: $it") }.getOrNull()
     }
 

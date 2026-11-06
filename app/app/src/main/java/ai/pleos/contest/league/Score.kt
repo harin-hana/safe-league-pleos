@@ -17,7 +17,7 @@ object Score {
         Pen.D5 to "과속", Pen.D6 to "벨트 미착용 주행", Pen.D7 to "주의 경고", Pen.D8 to "스텔스 주행",
     )
     val BONUS_LABEL = mapOf(
-        Bonus.B1 to "벨트 올인", Bonus.B2 to "클린 주행", Bonus.B3 to "깜빡이 콤보 20",
+        Bonus.B1 to "출발 전 모두 벨트", Bonus.B2 to "클린 주행", Bonus.B3 to "깜빡이 콤보 20",
         Bonus.B4 to "보호구역 감속", Bonus.B5 to "미리 감속", Bonus.B6 to "빗길 전조등",
     )
 
@@ -53,7 +53,7 @@ object Score {
         }
         val km = max(distanceKm, 0.1)
         val converted = round1(sum * 10 / km)
-        lines += Line("${fmtKm(distanceKm)} km로 환산", converted)
+        lines += Line("감점 ${fmt(sum)}${eul(sum)} 달린 거리에 맞추면", converted)
         var bonus = 0.0
         for (b in Bonus.values()) {
             val n = j.bonus[b] ?: 0
@@ -72,4 +72,7 @@ object Score {
     fun round1(v: Double) = (v * 10).roundToInt() / 10.0
     fun fmtKm(km: Double) = String.format("%.1f", km)
     fun fmt(v: Double) = if (v == v.toLong().toDouble()) v.toLong().toString() else String.format("%.1f", v)
+    // 숫자 뒤 조사. 마지막 자리를 읽었을 때 받침이 ㅇ ㅁ ㄱ(0 3 6)이면 「으로」, 받침이 있으면(0 1 3 6 7 8) 「을」
+    fun ro(v: Double) = if (fmt(v).last() in "036") "으로" else "로"
+    fun eul(v: Double) = if (fmt(v).last() in "013678") "을" else "를"
 }
