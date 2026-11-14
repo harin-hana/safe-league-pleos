@@ -267,7 +267,7 @@ class MainActivity : Activity() {
         val b = Engine.board
         val left = column(14f) {
             clipChildren = false
-            addView(eyebrow("오늘 ${if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"} 리그 결과"))
+            addView(eyebrow(resultTitle()))
             addView(heroRow(r), lp(MATCH))
             addView(ladder(r), lp(MATCH))
             b?.morning?.let { (rank, s) -> addView(text("오늘 아침 리그는 ${Score.fmt(s)}${Score.ro(s)} ${rank}위였어요.\n아침과 저녁은 따로 겨뤄요.", 20f, tone.t2)) }
@@ -289,6 +289,26 @@ class MainActivity : Activity() {
     }
 
     // 큰 점수 + 순위 한 줄 + 어제 비교(3a, 3b 같음. M29 안 가: 펼쳐도 점수가 줄지 않게)
+    // M32 안 A(사용자 확정 11/15): 머리말에 같은 길 인원, 점수 옆에 바로 위 사람(1위면 2위)과의 차이. 값은 순위표 그대로
+    private fun resultTitle(): String {
+        val y = if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"
+        return Engine.board?.takeIf { it.league }?.let { "같은 길 ${it.total}명의 오늘 $y 리그" } ?: "오늘 $y 리그 결과"
+    }
+    private fun rivalLine(b: ai.pleos.contest.league.Board): String? {
+        val i = b.rows.indexOfFirst { it.me }
+        if (i < 0 || b.rows.size < 2) return null
+        val other = b.rows[if (i == 0) 1 else i - 1]
+        val d = Score.round1(abs(other.score - b.rows[i].score))
+        val who = "${other.rank}위 ${other.name}"
+        return when { d == 0.0 -> "$who${wa(other.name)} 같은 점수예요"; i == 0 -> "${who}보다 ${Score.fmt(d)} 앞서요"; else -> "$who${wa(other.name)} ${Score.fmt(d)} 차이예요" }
+    }
+    // 이름 끝 받침으로 와/과(숫자는 읽는 소리: 0 1 3 6 7 8은 받침 있음)
+    private fun wa(s: String): String {
+        val c = s.lastOrNull() ?: return "와"
+        val final = if (c in '가'..'힣') (c - '가') % 28 != 0 else c in "013678"
+        return if (final) "과" else "와"
+    }
+
     private fun heroRow(r: Score.Result) = row(22f) {
         val b = Engine.board
         gravity = Gravity.BOTTOM; clipChildren = false   // 큰 숫자 상자를 위로 당긴 만큼 잘리지 않게
@@ -296,7 +316,9 @@ class MainActivity : Activity() {
         addView(column {
             pad(0f, 0f, 0f, 10f)
             addView(text(b?.let { "${it.total}명 중 ${it.myRank}위" } ?: "순위 확인 중", 26f, tone.t1, MEDIUM))
-            b?.ghostDiff?.let { d -> val y = if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"; addView(text(if (d >= 0) "어제 ${y}보다 ${Score.fmt(d)} 올랐어요" else "어제 ${y}보다 ${Score.fmt(-d)} 내렸어요", 20f, tone.t2)) }
+            b?.takeIf { it.league }?.let { rivalLine(it) }?.let { addView(text(it, 20f, tone.t1)) }
+            b?.ghostDiff?.let { d -> val y = if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"; addView(text(when {
+                d > 0 -> "어제 ${y}보다 ${Score.fmt(d)} 올랐어요"; d < 0 -> "어제 ${y}보다 ${Score.fmt(-d)} 내렸어요"; else -> "어제 ${y}과 같은 점수예요" }, 20f, tone.t2)) }
         })
     }
     // 순위표: 위 3줄 + 흐린 한 줄(M14 .rows.rank). 3a는 오른쪽, 3b는 점수 아래(M29 안 가)
@@ -371,7 +393,7 @@ class MainActivity : Activity() {
         // M29 안 가(사용자 확정 11/14): 점수는 3a와 같은 크기, 그 아래 순위표. 펼쳐도 순위가 사라지지 않고 아래가 비지 않게
         val left = column(14f) {
             clipChildren = false
-            addView(eyebrow("오늘 ${if (Engine.slot == Engine.Slot.PM) "저녁" else "아침"} 리그 결과"))
+            addView(eyebrow(resultTitle()))
             addView(heroRow(r), lp(MATCH))
             addView(rankList(), lp(MATCH))
         }
