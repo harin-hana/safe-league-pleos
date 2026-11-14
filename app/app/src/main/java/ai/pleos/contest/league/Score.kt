@@ -23,6 +23,44 @@ object Score {
 
     data class Line(val label: String, val value: Double, val plus: Boolean = false)
 
+    // ---------- 심사용 판정 보기 문구(목업 M23 판정 보기) ----------
+    fun verdictLabel(v: Verdict): String = when {
+        v.section -> "구간단속 평균 초과"
+        v.pen != null -> (if (v.jam) "막히는 길 " else "") + PEN_LABEL.getValue(v.pen)
+        v.bonus == Bonus.B1 -> "벨트 올인"
+        v.bonus != null -> BONUS_LABEL.getValue(v.bonus)
+        else -> "깜빡이 켜고 차선 변경"
+    }
+    fun points(p: Double) = (if (p < 0) "−" else "+") + fmt(kotlin.math.abs(p))   // 빼기는 U+2212
+    fun clock(tMs: Long) = String.format("%d:%02d", tMs / 60000, tMs / 1000 % 60)
+
+    // 조건 한 줄: 조건 문장, 판정 순간 받은 값, 줄의 구실
+    enum class Mark { MET, MISS, GAIN }   // 맞은 줄(회색 체크), 감점을 가른 줄(흰색 ✕), 가산이나 콤보를 가른 줄(금색 체크)
+    data class Cond(val label: String, val value: String, val mark: Mark)
+
+    // 기준 숫자는 Judge와 같은 값이다(40 km/h, 5° 또는 3°, 초당 10 km/h 0.5초, 평균 20 km/h). 여기 없는 판정은 이름과 점수만 나온다
+    fun conditions(v: Verdict, jamWindowSec: Int): List<Cond> = when {
+        v.pen == Pen.D4 || (v.pen == null && v.bonus == null) -> listOf(
+            Cond("속도 40 km/h 이상", "${v.speed.roundToInt()} km/h", Mark.MET),
+            Cond("핸들을 ${fmt(v.swingMin.toDouble())}° 넘게 꺾었다 되돌림", "${if (v.swing > 0) "왼쪽" else "오른쪽"} ${fmt(round1(kotlin.math.abs(v.swing).toDouble()))}°", Mark.MET),
+            Cond("꺾은 쪽 깜빡이", when (v.signal) { -1 -> "왼쪽 켜짐"; 1 -> "오른쪽 켜짐"; else -> "꺼짐" }, if (v.pen == null) Mark.GAIN else Mark.MISS),
+        )
+        v.pen == Pen.D1 -> listOfNotNull(
+            Cond("브레이크 밟음", "밟음", Mark.MET),
+            Cond("초당 10 km/h 넘는 감속 0.5초 이상", "${v.speedBefore.roundToInt()} → ${v.speed.roundToInt()} km/h", Mark.MET),
+            if (v.jam) Cond("직전 ${jamWindowSec}초 평균 속도 20 km/h 이하", "${v.jamAvg.roundToInt()} km/h", Mark.GAIN) else null,
+        )
+        v.bonus == Bonus.B1 -> listOf(Cond("출발할 때 벨트 경고등 꺼짐", "꺼짐", Mark.GAIN))
+        v.bonus == Bonus.B6 -> listOf(Cond("와이퍼 켜짐", "켜짐", Mark.MET), Cond("하향등 켜짐", "켜짐", Mark.GAIN))
+        else -> emptyList()
+    }
+
+    // logcat 한 줄(태그 LEAGUE_JUDGE): 출발 후 시각 | 판정 이름 | 점수 변화 | 조건=그때 받은 값(줄의 구실) ; …  판정 보기에 그리는 것과 같은 내용
+    fun logLine(v: Verdict, jamWindowSec: Int): String = listOf(
+        clock(v.tMs), verdictLabel(v), if (v.pen == null && v.bonus == null) "콤보 ${v.combo}" else points(v.points),
+        conditions(v, jamWindowSec).joinToString(" ; ") { "${it.label}=${it.value}(${it.mark})" },
+    ).joinToString(" | ")
+
     data class Result(
         val distanceKm: Double,
         val penaltySum: Double,     // 보정 반영

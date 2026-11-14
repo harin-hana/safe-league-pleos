@@ -9,6 +9,7 @@ class Prefs(ctx: Context) {
     private fun set(k: String, v: Any) = p.edit().apply { when (v) { is Boolean -> putBoolean(k, v); is Float -> putFloat(k, v); is String -> putString(k, v); is Int -> putInt(k, v) } }.apply()
 
     var demo: Boolean get() = b("demo", false); set(v) = set("demo", v)
+    var judgeView: Boolean get() = b("judgeView", false); set(v) = set("judgeView", v)   // 데모 주행 중 「심사용 판정 보기」(기본 꺼짐, 0.4.1c)
     var steeringSign: Float get() = p.getFloat("steeringSign", -1f); set(v) = set("steeringSign", v)   // -1 에뮬레이터(콘솔과 반대), 1 실차
     // 옛 기본값 「아침7시42」는 시드 별명과 겹쳐 남의 이름으로도 보였다. 저장된 값이 그것이면 새 기본값으로
     var nickname: String get() = p.getString("nickname", null)?.takeIf { it != "아침7시42" } ?: "첫차보다먼저"; set(v) = set("nickname", v)

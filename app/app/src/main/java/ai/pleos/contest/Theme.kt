@@ -31,6 +31,9 @@ class Tone(val day: Boolean, val rain: Boolean) {
     val glow = if (day) Color.argb(18, 21, 23, 26) else Color.argb(20, 236, 233, 227)
     val barChip = if (day) Color.argb(20, 21, 23, 26) else g2
     val barPill = if (day) Color.argb(15, 21, 23, 26) else g2
+    // 판정 보기 「데모 모드」 꼬리표. 밝은 바탕에서는 금색 글자가 안 읽혀 같은 금색을 짙게 쓴다(목업 값)
+    val tagInk = if (day) c("#7a6230") else ac
+    val tagBg = if (day) Color.argb(87, 216, 192, 143) else acDim
     companion object { fun c(s: String) = Color.parseColor(s) }
 }
 
@@ -109,6 +112,19 @@ class CheckDot(ctx: Context, private val tone: Tone, private val fill: Int = ton
         p.style = Paint.Style.STROKE; p.color = ink; p.strokeWidth = width * 0.17f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
         val path = android.graphics.Path().apply { moveTo(width * .29f, height * .53f); lineTo(width * .45f, height * .69f); lineTo(width * .72f, height * .36f) }
         c.drawPath(path, p)
+    }
+}
+
+// 판정 보기 조건 줄 끝 표시: 선으로만 그린 체크 또는 ✕(목업 29×21, 23×23)
+class CondMark(ctx: Context, private val color: Int, private val ok: Boolean) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat(); val h = height.toFloat()
+        p.color = color; p.strokeWidth = w * .09f
+        c.drawPath(android.graphics.Path().apply {
+            if (ok) { moveTo(w * .05f, h * .52f); lineTo(w * .36f, h * .83f); lineTo(w * .95f, h * .17f) }
+            else { moveTo(w * .14f, h * .14f); lineTo(w * .86f, h * .86f); moveTo(w * .86f, h * .14f); lineTo(w * .14f, h * .86f) }
+        }, p)
     }
 }
 

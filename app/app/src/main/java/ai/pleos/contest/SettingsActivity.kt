@@ -53,7 +53,8 @@ class SettingsActivity : Activity() {
         list.addView(item("핸들 부호", "에뮬레이터는 콘솔과 반대라 뒤집어 읽음", choice(listOf("에뮬레이터" to -1f, "실차" to 1f), p.steeringSign) { p.steeringSign = it; render() }), lp(MATCH))
         list.addView(item("별명", "순위표에 보이는 이름이에요", edit(p.nickname) { p.nickname = it }), lp(MATCH))
         list.addView(item("리그 서버", "비워 두면 고스트 리그", edit(p.serverUrl, wide = true) { p.serverUrl = it; Engine.reload() }), lp(MATCH))
-        toggle("데모 모드", "화면 구석에 「데모 입력」 표시. 정체 판정 창 60초를 10초로", p.demo) { p.demo = it; Engine.resetForDemo() }
+        toggle("데모 모드", "P단에 두면 도착으로 봐요. 단계 꼬리표를 길게 누르면 데모 입력", p.demo) { p.demo = it; Engine.resetForDemo() }
+        toggle("심사용 판정 보기", "데모 모드로 주행하는 동안 받은 신호와 판정을 보여 줘요", p.judgeView) { p.judgeView = it }
         list.addView(text("Vehicle SDK 2.3.2, NaviHelper 3.0.5. AAOS 속도 ${if (Engine.aaosOk) "연결" else "미연결"}. ${Engine.lastError ?: ""}", 15f, tone.t3).apply { pad(0f, 14f, 0f, 20f) })
         body.addView(ScrollView(this).apply { addView(list) }, lp(0, WRAP, 1f).apply { setMargins(0, ki(16f), ki(24f), ki(24f)) })
         root.addView(body, lp(MATCH, 0, 1f))

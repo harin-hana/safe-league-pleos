@@ -36,7 +36,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- 세이프 리그. applicationId는 설치 호환을 위해 그대로 둔다 -->
-    <!-- 아이콘: 그림은 res/drawable/ic_logo.xml 하나(임시 자동차). 로고를 받으면 그 파일만 바꾼다 -->
+    <!-- 아이콘: 그림은 res/drawable/ic_logo.png 하나(방패 안 S자 도로, 사용자 확정 11/14). 먹색 바탕은 ic_launcher.xml.
+         로고가 바뀌면 app/ 폴더에서 python tools/logo/make_icon.py <로고.png> <미리 보기.png> -->
     <application
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"

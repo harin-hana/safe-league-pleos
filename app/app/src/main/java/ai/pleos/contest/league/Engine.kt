@@ -102,11 +102,21 @@ object Engine {
     var bringToFront: (() -> Unit)? = null
 
     val demo get() = prefs.demo
-    val slot: Slot get() = if (demo) (if (phase == Phase.RESULT || phase == Phase.ARRIVED) Slot.PM else Slot.AM) else LocalTime.now().hour.let { if (it in 6..9) Slot.AM else if (it in 17..20) Slot.PM else Slot.NONE }
+    // 데모는 출발부터 도착, 결과까지 아침 출근 하나(집 → 회사). 한 번의 주행 안에서 아침과 저녁이 섞이지 않게(2026-11-14)
+    val slot: Slot get() = if (demo) Slot.AM else LocalTime.now().hour.let { if (it in 6..9) Slot.AM else if (it in 17..20) Slot.PM else Slot.NONE }
 
     fun addListener(l: () -> Unit) { listeners += l }
     fun removeListener(l: () -> Unit) { listeners -= l }
-    fun notifyUi() = listeners.toList().forEach { it() }
+    fun notifyUi() { logVerdicts(); listeners.toList().forEach { it() } }
+
+    // 판정이 날 때마다 logcat에 한 줄(태그 LEAGUE_JUDGE). 화면에 판정 보기가 없어도 영상 해설이 앱의 실제 기록에서 옮겨 적을 수 있게.
+    // 콤보는 판정 보기처럼 한 줄을 고쳐 쓰므로 콤보가 오를 때마다 새 줄이 남는다
+    const val TAG_JUDGE = "LEAGUE_JUDGE"
+    private val loggedVerdicts = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Verdict, Boolean>())
+    private fun logVerdicts() {
+        val j = judge ?: return
+        j.verdicts.forEach { if (loggedVerdicts.add(it)) Log.i(TAG_JUDGE, Score.logLine(it, j.cfg.jamWindowSec)) }
+    }
     private fun post(f: () -> Unit) { main.post { f(); notifyUi() } }
 
     // ---------- 시작 ----------
@@ -220,6 +230,7 @@ object Engine {
         val j = judge ?: return
         if (phase != Phase.ARMED && phase != Phase.DRIVING) return
         j.tick(kmh, SystemClock.elapsedRealtime() - tripStartMs)
+        logVerdicts()   // 급제동 같은 판정은 속도 틱에서 난다
     }
 
     private fun connectNavi(app: Context) {
@@ -266,6 +277,8 @@ object Engine {
             g == VehicleGear.GEAR_DRIVE && phase == Phase.ARMED -> { phase = Phase.DRIVING; Log.i(TAG, "주행 시작, 화면 없음") }
             g == VehicleGear.GEAR_DRIVE && phase == Phase.IDLE && prefs.autoJoin -> { join(); phase = Phase.DRIVING }
             g == VehicleGear.GEAR_PARK && phase == Phase.ARRIVED -> showResult()
+            // 데모는 내비 목적지가 없다. 주행 중 P단에 두면 도착으로 본다(주행 중에는 화면이 비켜 있어 「데모 입력: 도착」을 손으로 누를 자리가 없다. 0.4.1c)
+            g == VehicleGear.GEAR_PARK && phase == Phase.DRIVING && demo -> arrive("데모 P단")
         }
     }
 
@@ -276,7 +289,7 @@ object Engine {
         j.onBrake(brake); j.onTurnSignal(turnSignal); j.onLowBeam(lowBeam); j.onTailLamp(tailLamp); j.onNight(night); j.onWiper(wiper); j.onBeltWarning(beltWarning)
         j.onSteering(steering)
         j.onDepart()
-        judge = j; result = null; board = null; detail = false; waypointAddedMin = null; cueMarks.clear()
+        judge = j; result = null; board = null; detail = false; waypointAddedMin = null; cueMarks.clear(); loggedVerdicts.clear()
         tripStart = LocalDateTime.now(); tripStartMs = SystemClock.elapsedRealtime()
         phase = Phase.ARMED
         Log.i(TAG, "리그 참가. 벨트 올인 ${j.bonus[Bonus.B1] == 1}")
@@ -326,7 +339,8 @@ object Engine {
         bringToFront?.invoke()
         notifyUi()
         // 서버가 4초 안에 답하지 않으면 고스트 리그로(에뮬레이터는 DNS가 없어 30초 넘게 걸림)
-        main.postDelayed({ if (board == null) { board = Ghost.board(r.score); Log.i(TAG, "서버 응답 없음, 고스트 리그"); notifyUi() } }, 4000)
+        val ghost = { if (demo) Ghost.demoBoard(r.score) else Ghost.board(r.score) }
+        main.postDelayed({ if (board == null) { board = ghost(); Log.i(TAG, "서버 응답 없음, 고스트 리그"); notifyUi() } }, 4000)
         Thread {
             val start = tripStart ?: LocalDateTime.now()
             val durationS = ((SystemClock.elapsedRealtime() - tripStartMs) / 1000).toInt()
@@ -334,7 +348,9 @@ object Engine {
             // 데모 모드는 시드의 시연 차량 'me'로 올린다(설치마다 바뀌는 id가 데모 리그에 행을 쌓아 「8명 중 3위」가 되던 것. 11/07)
             val b = LeagueClient.upload(if (prefs.demo) "me" else prefs.driverId, prefs.nickname, leagueKey(), start.toLocalDate().toString(),
                 start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), r, durationS, etaS, eligible(r, durationS, etaS))
-                ?: Ghost.board(r.score)
+                // 서버 데모 시드에는 어제 아침 기록이 없다(어제 저녁만). 데모의 「어제 아침보다」는 앱 시드 값으로 채운다
+                ?.let { if (demo && it.ghostDiff == null) it.copy(ghostDiff = Score.round1(r.score - Ghost.yesterdayMe)) else it }
+                ?: ghost()
             main.post { if (board == null || b.source == "서버") { board = b; Log.i(TAG, "순위 ${b.myRank}/${b.total} (${b.source})"); notifyUi() } }
         }.start()
     }
@@ -344,7 +360,7 @@ object Engine {
 
     private fun grid(v: Double, size: Double) = (v / size).toInt()
     fun leagueKey(): String {
-        if (demo) return if (slot == Slot.PM) "WORK|HOME|PM" else "HOME|WORK|AM"
+        if (demo) return "HOME|WORK|AM"
         val l = location; val d = dest
         val s = if (l == null) "0_0" else "${grid(l.latitude, 0.03)}_${grid(l.longitude, 0.03)}"
         val e = if (d == null) "0_0" else "${grid(d.latitude, 0.01)}_${grid(d.longitude, 0.01)}"

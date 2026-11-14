@@ -22,6 +22,8 @@ data class Prize(val rank: Int, val days: String, val stamps: Int, val choices: 
 // 앱 안 시드(server/seed_demo.sql과 같은 값). 서버가 없거나 막히면 이걸로 고스트 리그.
 object Ghost {
     val pm = listOf("아침첫차" to 100.0, "올림픽대로" to 98.8, "깜빡이장인" to 98.1, "비오는날" to 97.4, "월요일만" to 96.7, "아침7시42" to 96.0)
+    // 데모 아침 리그(집 → 회사). 서버 시드 HOME|WORK|AM과 같은 값이라 서버가 답하든 안 하든 같은 순위표가 나온다
+    val am = listOf("아침첫차" to 100.0, "올림픽대로" to 99.2, "깜빡이장인" to 99.0, "비오는날" to 98.0, "월요일만" to 97.7, "아침7시42" to 95.3)
     val morningMe = 2 to 99.3   // 저녁 99.7과 다른 값으로(같은 숫자가 두 번 보이지 않게)
     const val yesterdayMe = 99.3
     val names get() = pm.map { it.first }
@@ -33,6 +35,9 @@ object Ghost {
         return Board(rows, rows.first { it.me }.rank, rows.size, league,
             morningMe, Score.round1(myScore - yesterdayMe), "고스트")
     }
+
+    // 데모는 아침 리그 하나라 「오늘 아침 리그는 …」 줄(저녁 결과에만 붙는 것)이 없다
+    fun demoBoard(myScore: Double) = board(myScore, am).copy(morning = null)
 
     // 데모 값: 도장 세 개가 찬 주. 블루핸즈는 제휴 가정(좌표는 예시)
     val prize = Prize(3, "월, 수, 금", 3, listOf(Choice("블루핸즈 안전 점검", 4.1, 12, 37.5048, 127.0251), Choice("길 위 카페 아메리카노 한 잔", 2.3, 6, 37.4979, 127.0276)))

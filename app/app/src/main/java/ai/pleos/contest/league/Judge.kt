@@ -19,6 +19,24 @@ sealed class Cue {
 
 data class PenaltyEvent(val pen: Pen, val tMs: Long, val km: Double, val jam: Boolean, val section: Boolean = false)
 
+// 심사용 판정 보기에 넘기는 기록: 판정 한 건과 그 순간 받은 값. 규칙과 점수 계산에는 쓰지 않는다.
+// pen = 감점, bonus = 가산, 둘 다 없으면 깜빡이 켠 차선 변경(combo = 그때 콤보). 값은 판정 종류에 따라 일부만 채운다
+data class Verdict(
+    val tMs: Long, val pen: Pen? = null, val bonus: Bonus? = null, val combo: Int = 0, val jam: Boolean = false, val section: Boolean = false,
+    val speed: Float = 0f,         // 판정 순간 속도
+    val speedBefore: Float = 0f,   // 0.5초 전 속도(급제동)
+    val jamAvg: Float = 0f,        // 직전 N초 평균 속도(막히는 길)
+    val swing: Float = 0f,         // 최근 4초의 최대 꺾임, 양수 = 왼쪽(차선 변경)
+    val swingMin: Float = 0f,      // 그 속도에서의 꺾임 기준(5° 또는 3°)
+    val signal: Int = 0,           // 깜빡이. -1 왼쪽, 0 꺼짐, +1 오른쪽. 콤보는 맞은 쪽(방금 끈 2초 안도 켠 것으로 치는 규칙 그대로)
+) {
+    val points: Double get() = when {
+        pen != null -> -(if (section) Score.SECTION_WEIGHT else Score.PEN_WEIGHT.getValue(pen) * if (jam) 0.5 else 1.0)
+        bonus != null -> Score.BONUS_WEIGHT.getValue(bonus)
+        else -> 0.0
+    }
+}
+
 class Config(
     var steeringSign: Float = -1f,     // 앱 값 × 부호 = 콘솔 기준. 에뮬레이터는 콘솔과 반대라 -1. 양수 = 왼쪽
     var jamWindowSec: Int = 60,        // 정체 판정 창. 데모 모드 10
@@ -51,6 +69,7 @@ class Judge(val cfg: Config = Config(), private val cue: (Cue) -> Unit = {}) {
     // 결과
     val penalties = mutableListOf<PenaltyEvent>()
     val bonus = mutableMapOf<Bonus, Int>()
+    val verdicts = mutableListOf<Verdict>()    // 판정 보기용 기록(시간 순). 콤보는 한 줄을 고쳐 쓴다
     var combo = 0; private set
     var comboMax = 0; private set
     var distanceKm = 0.0; private set          // 속도 적분(실차는 Odometer 값으로 덮어씀)
@@ -100,7 +119,7 @@ class Judge(val cfg: Config = Config(), private val cue: (Cue) -> Unit = {}) {
     fun onBeltWarning(on: Boolean) { beltWarning = on; if (!on) beltCounted = false }
 
     // 출발 때 한 번: 착석 전원 벨트(= 벨트 경고등 없음)면 B1
-    fun onDepart() { if (!beltWarning) { bonus[Bonus.B1] = 1; cue(Cue.BeltAllIn) } }
+    fun onDepart() { if (!beltWarning) { bonus[Bonus.B1] = 1; verdicts.add(0, Verdict(0, bonus = Bonus.B1)); cue(Cue.BeltAllIn) } }
 
     // 실차: Odometer 거리로 적분값을 덮어씀
     fun onOdometerKm(km: Float) { if (km > 0f) distanceKm = km.toDouble() }
@@ -111,7 +130,7 @@ class Judge(val cfg: Config = Config(), private val cue: (Cue) -> Unit = {}) {
         for ((id, limit, remain) in list) if (remain in 0..300 && id !in cameraWatch) cameraWatch[id] = limit to true
         for (id in cameraWatch.keys.toList()) if (id !in ids) {
             val (limit, ok) = cameraWatch.remove(id)!!
-            if (ok && limit > 0 && speedKmh <= limit && (bonus[Bonus.B5] ?: 0) < 3) bonus[Bonus.B5] = (bonus[Bonus.B5] ?: 0) + 1
+            if (ok && limit > 0 && speedKmh <= limit && (bonus[Bonus.B5] ?: 0) < 3) { bonus[Bonus.B5] = (bonus[Bonus.B5] ?: 0) + 1; verdicts += Verdict(nowMs, bonus = Bonus.B5, speed = speedKmh) }
         }
     }
     fun onSectionOverSpeed() = penalty(Pen.D5, false, section = true)   // 구간단속 평균 초과 1회 3
@@ -121,10 +140,10 @@ class Judge(val cfg: Config = Config(), private val cue: (Cue) -> Unit = {}) {
     private fun closeZone() {
         val z = zone ?: return
         zone = null
-        if (z.ok && zonesCounted < 3) { zonesCounted++; bonus[Bonus.B4] = zonesCounted }
+        if (z.ok && zonesCounted < 3) { zonesCounted++; bonus[Bonus.B4] = zonesCounted; verdicts += Verdict(nowMs, bonus = Bonus.B4, speed = speedKmh) }
     }
 
-    private fun checkB6() { if (wiper && lowBeam) wiperLightSeen = true }
+    private fun checkB6() { if (wiper && lowBeam && !wiperLightSeen) { wiperLightSeen = true; verdicts += Verdict(nowMs, bonus = Bonus.B6) } }
 
     // ---------- 시계: 속도 틱 ----------
 
@@ -199,17 +218,22 @@ class Judge(val cfg: Config = Config(), private val cue: (Cue) -> Unit = {}) {
             val signalMatch = turnSignal == s || (lastSignalDir == s && nowMs - lastSignalOffMs <= SIGNAL_RECENT_MS)
             if (signalMatch) {
                 combo++; comboMax = max(comboMax, combo)
+                // 판정 보기: 이번 연속의 콤보 줄(마지막 감점 뒤에 있는 것)을 지우고 새 값으로 다시 적는다
+                verdicts.indexOfLast { it.bonus == null }.let { if (it >= 0 && verdicts[it].pen == null) verdicts.removeAt(it) }
+                verdicts += Verdict(nowMs, combo = combo, speed = speedKmh, swing = swing, swingMin = lo, signal = s)
                 if (combo == 5 || combo == 10 || combo == 20) cue(Cue.Combo(combo))
-                if (combo >= 20) bonus[Bonus.B3] = 1
-            } else penalty(Pen.D4, false)
+                if (combo >= 20) { if (Bonus.B3 !in bonus) verdicts += Verdict(nowMs, bonus = Bonus.B3); bonus[Bonus.B3] = 1 }
+            } else penalty(Pen.D4, false, swing = swing, swingMin = lo)
             steer.clear(); steer.addLast(nowMs to theta)
         }
     }
 
     // ---------- 감점(무음) ----------
 
-    private fun penalty(pen: Pen, jam: Boolean, section: Boolean = false) {
+    private fun penalty(pen: Pen, jam: Boolean, section: Boolean = false, swing: Float = 0f, swingMin: Float = 0f) {
         penalties += PenaltyEvent(pen, nowMs, distanceKm, jam, section)
+        verdicts += Verdict(nowMs, pen, jam = jam, section = section, speed = speedKmh, speedBefore = speeds.firstOrNull() ?: speedKmh,
+            jamAvg = if (jamCount > 0) (jamSum / jamCount).toFloat() else 0f, swing = swing, swingMin = swingMin, signal = turnSignal)
         combo = 0
         cleanKmSinceLast = 0.0; cleanMilestone = 0
         voidedKm += distanceKm.toInt()
