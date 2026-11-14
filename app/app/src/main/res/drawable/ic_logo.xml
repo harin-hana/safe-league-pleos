@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 임시 앱 아이콘 그림: 금색 자동차 옆모습(선만). 108 칸 중 가운데 66 칸 안에 그린다(바깥은 잘림).
+     로고를 받으면 이 파일만 바꾼다: 같은 이름 ic_logo.png(바탕 투명, 그림은 가운데 60% 안)를 넣고 이 xml을 지운다 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateY="-2" android:pivotX="54" android:pivotY="54" android:scaleX="0.86" android:scaleY="0.86">
+        <!-- 차체 -->
+        <path android:pathData="M79,64 H83 Q85,64 85,62 V57 Q85,54 82,53.5 L68,51 L60,43 Q59,42 57,42 H45 Q43,42 41.5,43 L33,51 L26,52.5 Q23,53 23,56 V62 Q23,64 25,64 H29 M45,64 H63 M33,51 H68"
+            android:strokeColor="#d6bd8d" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+        <!-- 바퀴 둘 -->
+        <path android:pathData="M31,64 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M65,64 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"
+            android:strokeColor="#d6bd8d" android:strokeWidth="3.2" android:fillColor="#00000000" />
+    </group>
+</vector>

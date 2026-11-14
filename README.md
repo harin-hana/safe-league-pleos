@@ -14,6 +14,8 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 
 **데모 모드**: 설정 화면의 「데모 모드」 스위치를 켜면 화면 구석에 「데모 입력」이 항상 표시되고, 에뮬레이터가 만들지 못하는 신호(도착, 앰비언트 등)를 앱 안에서 발생시킬 수 있습니다. 정체 판정 창 60초가 10초로 줄어 시연이 짧아집니다. 진단 화면(`DiagActivity`, `LeagueDiagActivity`)은 신호 확인용으로 남겨 두었습니다.
 
+**시동 자동 실행(0.4.0)**: 차량 화면이 켜지면(부팅) 기어가 P단일 때 출발 카드가 스스로 올라옵니다. D단에서는 올라오지 않습니다. 설정 화면의 「시동 때 자동 실행」으로 끌 수 있습니다. Vehicle SDK 2.3.2와 에뮬레이터에는 앱이 받을 수 있는 시동 신호가 없어 부팅을 시동으로 봅니다. 1절 5번 권한을 한 번 주어야 동작합니다.
+
 ## 1. 실행 방법
 
 1. **Pleos Connect Emulator v2.1.0**을 설치하고 Cold boot로 켭니다. 내비 앱이 떠 있어야 NaviHelper가 응답합니다.
@@ -33,6 +35,11 @@ A commute league for drivers on the same route, ranked by who arrived most safel
    ```
    adb shell pm grant --user 10 ai.pleos.contest.pleos_commerce android.car.permission.CAR_SPEED
    ```
+5. 시동 자동 실행을 보려면 「다른 앱 위에 표시」 권한을 한 번 줍니다. Android 14는 화면이 없는 앱이 스스로 화면을 올리는 것을 막고, Pleos Connect에는 이 권한을 켜는 설정 화면이 없어 명령으로 줍니다. 주지 않으면 자동 실행만 동작하지 않고, 아이콘을 눌러 여는 흐름은 그대로입니다.
+   ```
+   adb shell "appops set --user 10 ai.pleos.contest.pleos_commerce SYSTEM_ALERT_WINDOW allow; appops write-settings"
+   ```
+   그 뒤 에뮬레이터를 다시 켜면(`adb reboot`) 홈 화면이 뜬 뒤 1~2분 안에 출발 카드가 올라옵니다. 부팅 방송이 다른 앱 뒤에 차례로 오기 때문에 PC가 느리면 더 걸립니다. 앱을 한 번은 직접 열어 둔 상태여야 하고, `adb shell am force-stop`을 한 뒤에는 다시 한 번 직접 열어야 다음 부팅에 뜹니다.
 
 ## 2. 테스트 환경과 필요한 설정
 
@@ -57,7 +64,7 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 3. **콘솔 브라우저 탭을 앞에 둡니다.** 탭이 뒤로 숨으면 1~2분 뒤 콘솔이 신호를 받지 않습니다(`503 emulator_inactive`). 새로고침하면 다시 받습니다.
 4. 장면별로 어떤 신호를 어떤 순서로 넣는지는 `docs/DEMO_SCRIPT_v2.md`에 적어 두었습니다.
 
-**권한**: `AndroidManifest.xml`에 Pleos 차량 권한(`pleos.car.permission.*`)과 내비 권한(`NAVI_ROUTE` 외 3개), AAOS 속도 권한이 선언돼 있습니다. 런타임 허용이 필요한 것은 속도(`CAR_SPEED`) 하나이며 1절 4번으로 허용합니다.
+**권한**: `AndroidManifest.xml`에 Pleos 차량 권한(`pleos.car.permission.*`)과 내비 권한(`NAVI_ROUTE` 외 3개), AAOS 속도 권한이 선언돼 있습니다. 런타임 허용이 필요한 것은 속도(`CAR_SPEED`) 하나이며 1절 4번으로 허용합니다. 0.4.0에서 부팅 방송(`RECEIVE_BOOT_COMPLETED`)과 「다른 앱 위에 표시」(`SYSTEM_ALERT_WINDOW`, 1절 5번)를 더했습니다.
 
 **글꼴**: IBM Plex Sans KR, Barlow Semi Condensed를 `res/font/`에 동봉했습니다(SIL Open Font License, 전문은 `assets/licenses/`).
 
@@ -78,7 +85,7 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 
 `apk/같은길_세이프리그_release.apk`
 
-서명된 release 빌드(versionCode 3, 0.3.0)입니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
+서명된 release 빌드(versionCode 4, 0.4.0)입니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
 
 ## 5. 시연 영상
 

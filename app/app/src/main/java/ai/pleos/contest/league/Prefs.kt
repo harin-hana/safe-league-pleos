@@ -13,6 +13,7 @@ class Prefs(ctx: Context) {
     // 옛 기본값 「아침7시42」는 시드 별명과 겹쳐 남의 이름으로도 보였다. 저장된 값이 그것이면 새 기본값으로
     var nickname: String get() = p.getString("nickname", null)?.takeIf { it != "아침7시42" } ?: "첫차보다먼저"; set(v) = set("nickname", v)
     var autoJoin: Boolean get() = b("autoJoin", false); set(v) = set("autoJoin", v)
+    var autoStart: Boolean get() = b("autoStart", true); set(v) = set("autoStart", v)   // 시동 때 출발 카드를 스스로 올림(0.4.0)
     var sound: Boolean get() = b("sound", true); set(v) = set("sound", v)
     var tts: Boolean get() = b("tts", true); set(v) = set("tts", v)
     var ambient: Boolean get() = b("ambient", true); set(v) = set("ambient", v)

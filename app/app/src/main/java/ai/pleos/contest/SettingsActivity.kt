@@ -43,7 +43,8 @@ class SettingsActivity : Activity() {
         body.addView(menu, lp(ki(320f), MATCH))
         val list = column { background = rounded(tone.g1, k(24f)); pad(36f, 6f, 36f, 0f) }
         fun toggle(name: String, sub: String, on: Boolean, set: (Boolean) -> Unit) = list.addView(item(name, sub, Toggle(this, tone, on) { set(it); render() }), lp(MATCH))
-        toggle("출발 때 리그 자동 참가", "출발 안내 화면 없이 바로 참가해요", p.autoJoin) { p.autoJoin = it }
+        toggle("시동 때 자동 실행", "시동을 걸면 출발 안내 화면을 바로 보여 드려요", p.autoStart) { p.autoStart = it }
+        toggle("출발 때 리그 자동 참가","출발 안내 화면 없이 바로 참가해요", p.autoJoin) { p.autoJoin = it }
         toggle("콤보 효과음", "콤보 단계에 오를 때마다 한 번 울려요", p.sound) { p.sound = it }
         toggle("음성 한마디", "「콤보 10」처럼 짧게 말해요", p.tts) { p.tts = it }
         toggle("실내 조명 반짝", "콤보 단계에 오를 때마다 한 번 반짝여요", p.ambient) { p.ambient = it }

@@ -196,6 +196,8 @@ object Engine {
             aaosOk = props!!.registerCallback(propCallback, VehiclePropertyIds.PERF_VEHICLE_SPEED, CarPropertyManager.SENSOR_RATE_FAST)
             Log.i(TAG, "AAOS 속도 등록 $aaosOk")
         }.onFailure { aaosOk = false; err("AAOS $it") }
+        // 시동 신호는 앱까지 오지 않는다(2026-11-12 실측: Vehicle SDK 2.3.2에 시동 리스너 없음, AAOS IGNITION_STATE 속성 없음,
+        // Virtual Console power-system은 VHAL 로그까지만). 그래서 시동 = 부팅으로 본다(ArrivalService, BootReceiver)
     }
 
     private val propCallback = object : CarPropertyManager.CarPropertyEventCallback {
