@@ -185,7 +185,9 @@ adb logcat -s LEAGUE_JUDGE
 
 ## 5. 시연 영상
 
-(업로드 뒤 기입)
+`video/safe_league_demo.mp4` (2분, 1920×1080)
+
+Pleos Connect Emulator v2.1.0에서 release APK 0.4.1을 직접 조작한 화면 녹화입니다. 왼쪽 화면이 녹화 그대로이고, 오른쪽 칸과 자막, 효과음은 편집으로 더했습니다. 같은 파일을 접수 메일에도 첨부했습니다.
 
 ## 6. 시연 데이터와 판정
 
@@ -198,4 +200,5 @@ app/     Pleos Connect 앱 (Gradle 프로젝트, Kotlin)
 apk/     release APK
 docs/    기획서, 리그 규칙, 시연 대본, 문구 검토
 server/  리그 서버 (Cloudflare Workers + D1)
+video/   시연 영상
 ```
