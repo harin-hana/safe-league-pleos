@@ -40,7 +40,7 @@ object Ghost {
     fun demoBoard(myScore: Double) = board(myScore, am).copy(morning = null)
 
     // 데모 값: 도장 세 개가 찬 주. 블루핸즈는 제휴 가정(좌표는 예시)
-    val prize = Prize(3, "월, 수, 금", 3, listOf(Choice("블루핸즈 안전 점검", 4.1, 12, 37.5048, 127.0251), Choice("길 위 카페 아메리카노 한 잔", 2.3, 6, 37.4979, 127.0276)))
+    val prize = Prize(3, "월, 수, 금", 3, listOf(Choice("블루핸즈 안전 점검", 4.1, 12, 37.5048, 127.0251), Choice("길 위 카페 아메리카노 한 잔", 2.3, 4, 37.4059, 127.0986)))
 }
 
 // 리그 서버(Cloudflare Workers + D1). 주행 중 통신 없음. 도착 때 POST /trip 한 번, 다음 출발 카드에서 GET /prize 한 번.

@@ -141,6 +141,7 @@ adb logcat -s LEAGUE_JUDGE
 | 항목 | 값 |
 |---|---|
 | 에뮬레이터 | Pleos Connect Emulator v2.1.0 |
+| 화면 규격 | 전체 2560×1440 px, 160 dpi(1 px = 1 dp), 가로형. 앱 영역은 오른쪽 1682×1210 dp |
 | 앱 | minSdk 28, targetSdk 35, Kotlin 2.0, Java 17 |
 | 빌드 | Gradle 8.10.2(래퍼 포함), Android Gradle Plugin 8.8.2 |
 | SDK | `ai.pleos.playground:Vehicle:2.3.2`, `ai.pleos.playground:NaviHelper:3.0.5` |

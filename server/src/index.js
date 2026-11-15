@@ -6,7 +6,7 @@ const DEMO_KEYS = new Set(['WORK|HOME|PM', 'HOME|WORK|AM']);
 // 다음 날 카드(M19b 안 C): 지난주 순위, 근거 요일, 도장 수, 셋이 차면 고를 둘. 좌표는 예시(블루핸즈는 제휴 가정)
 const PRIZE = { has: true, rank: 3, days: '월, 수, 금', stamps: 3, choices: [
   { name: '블루핸즈 안전 점검', km: 4.1, extra_min: 12, lat: 37.5048, lng: 127.0251 },
-  { name: '길 위 카페 아메리카노 한 잔', km: 2.3, extra_min: 6, lat: 37.4979, lng: 127.0276 } ] };
+  { name: '길 위 카페 아메리카노 한 잔', km: 2.3, extra_min: 4, lat: 37.4059, lng: 127.0986 } ] };
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
 const r1 = (v) => Math.round(v * 10) / 10;
