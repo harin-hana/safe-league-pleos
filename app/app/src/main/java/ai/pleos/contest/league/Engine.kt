@@ -84,7 +84,9 @@ object Engine {
     var board: Board? = null; private set
     var prize: Prize? = null; private set
     var detail = false                       // 결과 화면 「내역 보기」 펼침
-    var waypointAddedMin: Int? = null        // 「들러요」 뒤 내비가 돌려준 도착 지연(분)
+    var waypointAddedMin: Int? = null        // 「들러요」로 경유지를 더한 뒤 보이는 도착 지연(분). 고른 곳의 extraMin
+    private var waypointPending = 0          // addWaypoint를 보내고 내비 답을 기다리는 중이면 그 요청 번호(0은 기다리지 않음)
+    private var waypointSeq = 0
     var prizeChoice = 1                      // 다음 날 카드에서 고른 받을 것(기본 둘째, 아메리카노. 허브 11/07)
     var ambientFlashUntil = 0L; private set
     var demoNote: String? = null; private set   // 화면 구석 「데모 입력: 도착」
@@ -260,12 +262,12 @@ object Engine {
             j.onCurveCaution(list.any { it.type.name.contains("CURVE") && it.remainDistance in 0..300 })
         }
         override fun onWaypointChanged(info: WaypointChangedInfo) = post {
-            val before = dest?.remainTime ?: 0
-            waypointAddedMin = maxOf(0, (info.routeStartInfo.duration - before) / 60)
-            Log.i(TAG, "경유지 ${info.cmdType} ${info.routeStartInfo.name} ${info.routeStartInfo.duration}s (전 ${before}s)")
+            // routeStartInfo.duration은 경유지까지 가는 구간 시간이라 도착 지연이 아님. 카드의 「도착 +N분」은 고른 곳의 값(extraMin)을 그대로 둠
+            Log.i(TAG, "경유지 ${info.cmdType} ${info.routeStartInfo.name} ${info.routeStartInfo.duration}s")
+            waypointPending = 0
             navi?.getDestinationInfo()
         }
-        override fun onError(code: NaviErrorCode) = err("Navi $code")
+        override fun onError(code: NaviErrorCode) = post { if (waypointPending != 0) waypointFailed("$code") else err("Navi $code") }
     }
 
     // ---------- 흐름 ----------
@@ -369,7 +371,7 @@ object Engine {
 
     // 다음 날 카드(상금). 데모 입력 「다음 날」 또는 실제로 상금이 있을 때
     fun nextDay() {
-        prize = null; phase = Phase.PRIZE; waypointAddedMin = null; prizeChoice = 1; notifyUi()
+        prize = null; phase = Phase.PRIZE; waypointAddedMin = null; waypointPending = 0; prizeChoice = 1; notifyUi()
         main.postDelayed({ if (prize == null) { prize = Ghost.prize; Log.i(TAG, "도장 서버 응답 없음, 시드 값"); notifyUi() } }, 4000)
         Thread {
             val p = LeagueClient.prize(prefs.driverId) ?: return@Thread
@@ -380,11 +382,19 @@ object Engine {
     // 「들러요」: 내비 경유지 추가
     fun stopBy() {
         val c = prize?.choices?.getOrNull(prizeChoice) ?: return
+        if (waypointAddedMin != null) return   // 이미 더함. 다시 눌러도 경유지를 또 넣지 않음
         runCatching { navi?.addWaypoint(RequestWaypointInfo(c.lat, c.lng, c.name, WaypointIndex.FIRST, "", "", "", "")) }
-            .onSuccess { Log.i(TAG, "들러요 → addWaypoint ${c.name} (${c.lat}, ${c.lng})") }.onFailure { err("경유지 추가 $it") }
-        waypointAddedMin = waypointAddedMin ?: c.extraMin   // 내비 응답이 오면 실제 값으로 바뀜
+            .onSuccess {
+                Log.i(TAG, "들러요 → addWaypoint ${c.name} (${c.lat}, ${c.lng})")
+                waypointAddedMin = c.extraMin   // 카드 줄의 「들르면 N분 더」와 같은 값
+                val seq = ++waypointSeq; waypointPending = seq
+                main.postDelayed({ if (waypointPending == seq) waypointFailed("내비 답 없음") }, 30_000)   // 내비가 받지 못했으면 문구를 되돌려 다시 누를 수 있게
+            }
+            .onFailure { err("경유지 추가 $it") }
         notifyUi()
     }
+
+    private fun waypointFailed(why: String) { waypointPending = 0; waypointAddedMin = null; err("경유지 추가 안 됨: $why"); notifyUi() }
 
     fun later() { phase = Phase.IDLE; notifyUi() }
 

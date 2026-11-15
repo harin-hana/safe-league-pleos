@@ -453,17 +453,17 @@ class MainActivity : Activity() {
         }
     }
 
-    // 받을 것 목록(M19b .list .it): 고른 줄은 금색 체크 + 밝은 글자, 누르면 바뀜
+    // 받을 것 목록(M19b .list .it): 고른 줄은 금색 체크 + 밝은 글자, 안 고른 줄은 선으로만 그린 흐린 체크. 누르면 바뀜
     private fun choiceList(p: ai.pleos.contest.league.Prize) = column {
         p.choices.forEachIndexed { i, c ->
             val mine = i == Engine.prizeChoice
             addView(row(12f) {
                 pad(0f, if (i == 0) 0f else 15f, 0f, if (i == p.choices.lastIndex) 0f else 15f)
                 if (i > 0) background = topLine(tone.hair)
-                if (mine) addView(CheckDot(context, tone, tone.ac, tone.acInk), lp(ki(34f), ki(34f))) else addView(View(context), lp(ki(34f), ki(34f)))
+                addView(if (mine) CheckDot(context, tone, tone.ac, tone.acInk) else CheckDot(context, tone, tone.t3, tone.t3, ring = true), lp(ki(34f), ki(34f)))
                 addView(text(c.name, 25f, if (mine) tone.t1 else tone.t2), lp(0, WRAP, 1f))
                 addView(text("${Score.fmtKm(c.km)} km, 들르면 ${c.extraMin}분 더", 20f, tone.t2), lp().apply { marginEnd = ki(18f) })
-                setOnClickListener { Engine.prizeChoice = i; Engine.notifyUi() }
+                setOnClickListener { if (Engine.waypointAddedMin == null) { Engine.prizeChoice = i; Engine.notifyUi() } }   // 경유지를 더한 뒤에는 바꾸지 않음
             }, lp(MATCH))
         }
     }

@@ -104,12 +104,13 @@ fun Context.pill(label: String, tone: Tone, accent: Boolean = false) = text(labe
 
 // 체크 동그라미(M14 .ck span i)
 // 기본은 상단 바 색(바탕 navT1, 체크 g0). 금색 체크는 (ac, acInk)
-class CheckDot(ctx: Context, private val tone: Tone, private val fill: Int = tone.navT1, private val ink: Int = tone.g0) : View(ctx) {
+class CheckDot(ctx: Context, private val tone: Tone, private val fill: Int = tone.navT1, private val ink: Int = tone.g0, private val ring: Boolean = false) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
         val r = width / 2f
-        p.style = Paint.Style.FILL; p.color = fill; c.drawCircle(r, r, r, p)
-        p.style = Paint.Style.STROKE; p.color = ink; p.strokeWidth = width * 0.17f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
+        if (ring) { p.style = Paint.Style.STROKE; p.color = fill; p.strokeWidth = width * 0.05f; c.drawCircle(r, r, r - p.strokeWidth / 2, p) }   // 안 고른 줄: 채우지 않고 테두리만
+        else { p.style = Paint.Style.FILL; p.color = fill; c.drawCircle(r, r, r, p) }
+        p.style = Paint.Style.STROKE; p.color = ink; p.strokeWidth = width * (if (ring) 0.11f else 0.17f); p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
         val path = android.graphics.Path().apply { moveTo(width * .29f, height * .53f); lineTo(width * .45f, height * .69f); lineTo(width * .72f, height * .36f) }
         c.drawPath(path, p)
     }
