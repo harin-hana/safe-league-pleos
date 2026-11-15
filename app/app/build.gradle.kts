@@ -11,7 +11,7 @@ android {
         applicationId = "ai.pleos.contest.pleos_commerce"
         minSdk = 28
         targetSdk = 35
-        versionCode = 5
+        versionCode = 6
         versionName = "0.4.1"
     }
 

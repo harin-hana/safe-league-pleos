@@ -15,6 +15,7 @@ import android.widget.ScrollView
 // 설정(M14 장면 5): 왼쪽 메뉴, 오른쪽 목록. 데모 모드 스위치와 핸들 부호도 여기.
 class SettingsActivity : Activity() {
     private lateinit var tone: Tone
+    private var tab = 0   // 왼쪽 메뉴에서 고른 묶음(0 리그, 1 소리/조명, 2 내 차, 3 데모). render()를 다시 불러도 유지
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,29 +35,41 @@ class SettingsActivity : Activity() {
         }, lp(MATCH, ki(52f)))
         val body = row { setBackgroundColor(tone.nav) }
         val menu = column { pad(0f, 24f, 0f, 0f) }
-        listOf("리그", "소리와 빛", "내 차", "데모").forEachIndexed { i, m ->
-            menu.addView(text(m, 25f, if (i == 0) tone.navT1 else tone.navT2).apply {
+        listOf("리그", "소리/조명", "내 차", "데모").forEachIndexed { i, m ->
+            menu.addView(text(m, 25f, if (i == tab) tone.navT1 else tone.navT2).apply {
                 pad(32f, 18f, 32f, 18f)
-                if (i == 0) { background = rounded(tone.g0, k(16f)) }
-            }, lp(MATCH).apply { if (i == 0) marginEnd = ki(16f) })
+                if (i == tab) { background = rounded(tone.g0, k(16f)) }
+                setOnClickListener { currentFocus?.clearFocus(); tab = i; render() }   // 입력 칸은 포커스를 잃을 때 저장되므로 먼저 놓음
+            }, lp(MATCH).apply { marginEnd = ki(16f) })
         }
         body.addView(menu, lp(ki(320f), MATCH))
         val list = column { background = rounded(tone.g1, k(24f)); pad(36f, 6f, 36f, 0f) }
         fun toggle(name: String, sub: String, on: Boolean, set: (Boolean) -> Unit) = list.addView(item(name, sub, Toggle(this, tone, on) { set(it); render() }), lp(MATCH))
-        toggle("시동 때 자동 실행", "시동을 걸면 출발 안내 화면을 바로 보여 드려요", p.autoStart) { p.autoStart = it }
-        toggle("출발 때 리그 자동 참가","출발 안내 화면 없이 바로 참가해요", p.autoJoin) { p.autoJoin = it }
-        toggle("콤보 효과음", "콤보 단계에 오를 때마다 한 번 울려요", p.sound) { p.sound = it }
-        toggle("음성 한마디", "「콤보 10」처럼 짧게 말해요", p.tts) { p.tts = it }
-        toggle("실내 조명 반짝", "콤보 단계에 오를 때마다 한 번 반짝여요", p.ambient) { p.ambient = it }
-        toggle("동승자 심판석", "동승석에 앉은 분 화면에만 콤보를 바로 보여 드려요", false) { }
-        list.addView(item("차종", "차에 맞게 고르면 급핸들을 더 정확히 가려내요", text("기본값 ›", 20f, tone.t2)), lp(MATCH))
-        list.addView(item("핸들 부호", "에뮬레이터는 콘솔과 반대라 뒤집어 읽음", choice(listOf("에뮬레이터" to -1f, "실차" to 1f), p.steeringSign) { p.steeringSign = it; render() }), lp(MATCH))
-        list.addView(item("별명", "순위표에 보이는 이름이에요", edit(p.nickname) { p.nickname = it }), lp(MATCH))
-        list.addView(item("리그 서버", "비워 두면 고스트 리그", edit(p.serverUrl, wide = true) { p.serverUrl = it; Engine.reload() }), lp(MATCH))
-        toggle("데모 모드", "P단에 두면 도착으로 봐요. 단계 꼬리표를 길게 누르면 데모 입력", p.demo) { p.demo = it; Engine.resetForDemo() }
-        toggle("심사용 판정 보기", "데모 모드로 주행하는 동안 받은 신호와 판정을 보여 줘요", p.judgeView) { p.judgeView = it }
-        list.addView(text("Vehicle SDK 2.3.2, NaviHelper 3.0.5. AAOS 속도 ${if (Engine.aaosOk) "연결" else "미연결"}. ${Engine.lastError ?: ""}", 15f, tone.t3).apply { pad(0f, 14f, 0f, 20f) })
-        body.addView(ScrollView(this).apply { addView(list) }, lp(0, WRAP, 1f).apply { setMargins(0, ki(16f), ki(24f), ki(24f)) })
+        when (tab) {
+            0 -> {
+                toggle("시동 때 자동 실행", "시동을 걸면 출발 안내 화면을 바로 보여 드려요", p.autoStart) { p.autoStart = it }
+                toggle("출발 때 리그 자동 참가","출발 안내 화면 없이 바로 참가해요", p.autoJoin) { p.autoJoin = it }
+                list.addView(item("별명", "순위표에 보이는 이름이에요", edit(p.nickname) { p.nickname = it }), lp(MATCH))
+                list.addView(item("리그 서버", "비워 두면 고스트 리그", edit(p.serverUrl, wide = true) { p.serverUrl = it; Engine.reload() }), lp(MATCH))
+            }
+            1 -> {
+                toggle("콤보 효과음", "콤보 단계에 오를 때마다 한 번 울려요", p.sound) { p.sound = it }
+                toggle("음성 한마디", "「콤보 10」처럼 짧게 말해요", p.tts) { p.tts = it }
+                toggle("실내 조명 반짝", "콤보 단계에 오를 때마다 한 번 반짝여요", p.ambient) { p.ambient = it }
+            }
+            2 -> {
+                list.addView(item("차종", "차에 맞게 고르면 급핸들을 더 정확히 가려내요", soon()), lp(MATCH))
+                list.addView(item("핸들 부호", "에뮬레이터는 콘솔과 반대라 뒤집어 읽음", choice(listOf("에뮬레이터" to -1f, "실차" to 1f), p.steeringSign) { p.steeringSign = it; render() }), lp(MATCH))
+                list.addView(item("동승자 심판석", "동승석에 앉은 분 화면에만 콤보를 바로 보여 드려요", soon()), lp(MATCH))
+            }
+            else -> {
+                toggle("데모 모드", "P단에 두면 도착으로 봐요. 단계 꼬리표를 길게 누르면 데모 입력", p.demo) { p.demo = it; Engine.resetForDemo() }
+                toggle("심사용 판정 보기", "데모 모드로 주행하는 동안 받은 신호와 판정을 보여 줘요", p.judgeView) { p.judgeView = it }
+                list.addView(text("Vehicle SDK 2.3.2, NaviHelper 3.0.5. AAOS 속도 ${if (Engine.aaosOk) "연결" else "미연결"}. ${Engine.lastError ?: ""}", 15f, tone.t3).apply { pad(0f, 14f, 0f, 20f) })
+            }
+        }
+        if (tab != 3) { list.getChildAt(list.childCount - 1).background = null; list.pad(36f, 6f, 36f, 6f) }   // 묶음의 마지막 줄은 아래 선 없이
+        body.addView(ScrollView(this).apply { addView(list) }, lp(0, WRAP, 1f).apply { gravity = Gravity.TOP; setMargins(0, ki(16f), ki(24f), ki(24f)) })   // 항목이 적은 묶음도 위에 붙임
         root.addView(body, lp(MATCH, 0, 1f))
         setContentView(root)
     }
@@ -69,6 +82,9 @@ class SettingsActivity : Activity() {
         addView(column(2f) { addView(text(name, 25f, tone.t1)); addView(text(sub, 20f, tone.t2)) }, lp(0, WRAP, 1f))
         addView(right)
     }
+
+    // 아직 동작하지 않는 항목(M33 안 A): 누를 수 없는 회색 꼬리표. 핸들 부호의 안 고른 알약과 같은 톤
+    private fun soon() = text("준비 중", 20f, tone.t2).apply { background = rounded(tone.g3, k(999f)); pad(14f, 6f, 14f, 6f) }
 
     private fun choice(opts: List<Pair<String, Float>>, cur: Float, pick: (Float) -> Unit) = row(8f) {
         opts.forEach { (name, v) ->

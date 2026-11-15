@@ -1,6 +1,6 @@
 # 세이프 리그 (Safe League)
 
-같은 길로 출퇴근하는 운전자끼리, 차만 아는 신호로 가장 안전하게 도착한 순서를 겨루는 리그 게임입니다. 주행 중에는 아무것도 보여 주지 않고, 결과는 도착해서 P단에 놓았을 때 한 번만 보여 줍니다.
+같은 길로 출퇴근하는 운전자끼리, 차만 아는 신호로 가장 안전하게 도착한 순서를 겨루는 리그 게임입니다. 주행 중에는 화면에 아무것도 띄우지 않고, 가점 순간(콤보 달성 등)에만 짧은 사운드 노티로 알립니다. 감점은 알럿 없이 기록만 하고, 도착해 P단에 놓는 순간 결과 화면을 한 번만 팝업으로 엽니다.
 
 A commute league for drivers on the same route, ranked by who arrived most safely, using only signals the car knows.
 
@@ -14,8 +14,8 @@ A commute league for drivers on the same route, ranked by who arrived most safel
 |---|---|---|
 | 1 | APK 설치, 속도 신호 권한 허용 | 출발 카드 표시 |
 | 2 | 자동 실행 권한 명령 1회 | P단에서 팝업 동작 |
-| 3 | 설정에서 데모 모드 ON | 설정 화면의 토글 |
-| 4 | Virtual Console로 차량 신호 입력 | 주행 중 앱 화면 없음, 감점은 알럿 없이 기록 |
+| 3 | 설정에서 데모 모드 ON | 설정 화면 왼쪽 메뉴 「데모」의 토글 |
+| 4 | Virtual Console로 차량 신호 입력 | 주행 중 앱 화면 없음, 가점 순간에만 사운드 노티, 감점은 알럿 없이 기록 |
 | 5 | P단 | 결과 화면 팝업, 내역 보기 드롭다운 |
 
 1. **APK 설치**
@@ -28,7 +28,7 @@ A commute league for drivers on the same route, ranked by who arrived most safel
    adb shell "appops set --user 10 ai.pleos.contest.pleos_commerce SYSTEM_ALERT_WINDOW allow; appops write-settings"
    ```
    시동(부팅) 후 P단에서 출발 카드가, 도착 후 P단에서 결과 화면이 터치 없이 팝업으로 뜨는 데 필요한 안드로이드 「다른 앱 위에 표시」 권한입니다. Pleos 에뮬레이터에는 이 권한의 설정 화면이 없어 명령으로 부여합니다. 부여하지 않으면 팝업이 뜨지 않을 수 있으며, 이 경우 앱 목록 아이콘으로 실행하면 같은 화면이 열립니다.
-3. **데모 모드 ON**: 앱 화면 왼쪽 위 「세이프 리그」를 누르면 설정 화면이 열립니다. 「데모 모드」 토글을 켭니다.
+3. **데모 모드 ON**: 앱 화면 왼쪽 위 「세이프 리그」를 누르면 설정 화면이 열립니다. 왼쪽 메뉴에서 「데모」를 누르고 「데모 모드」 토글을 켭니다.
 4. **차량 신호 입력(Virtual Console)**
    ```
    adb forward tcp:8088 tcp:8088
@@ -105,7 +105,7 @@ adb shell am start -n ai.pleos.contest.pleos_commerce/ai.pleos.contest.MainActiv
 
 **시동 자동 실행(0.4.0)**: 차량 화면이 켜지면(부팅) 기어가 P단일 때 출발 카드가 팝업으로 뜹니다. D단에서는 뜨지 않습니다. 설정 화면의 「시동 때 자동 실행」으로 끌 수 있습니다. Vehicle SDK 2.3.2와 에뮬레이터에는 앱이 받을 수 있는 시동 신호가 없어 부팅을 시동으로 봅니다. 0절 2번 권한 명령(1절 5번과 같은 명령)을 한 번 쳐야 동작합니다.
 
-**심사용 판정 보기(0.4.1)**: 설정 화면의 「심사용 판정 보기」 스위치(기본 꺼짐)를 데모 모드에서 켜면, 주행 중 받은 신호와 판정을 화면에 보여 줍니다. 꺼져 있으면 실제 쓰는 모습 그대로 주행 중에는 앱이 비켜 주고 화면이 없습니다. 스위치와 관계없이 판정이 날 때마다 logcat에 한 줄이 남습니다.
+**심사용 판정 보기(0.4.1)**: 설정 화면 왼쪽 메뉴 「데모」의 「심사용 판정 보기」 스위치(기본 꺼짐)를 데모 모드에서 켜면, 주행 중 받은 신호와 판정을 화면에 보여 줍니다. 꺼져 있으면 실제 쓰는 모습 그대로 주행 중에는 앱이 비켜 주고 화면이 없습니다. 스위치와 관계없이 판정이 날 때마다 logcat에 한 줄이 남습니다.
 ```
 adb logcat -s LEAGUE_JUDGE
 ```
@@ -181,7 +181,7 @@ adb logcat -s LEAGUE_JUDGE
 
 `apk/같은길_세이프리그_release.apk`
 
-서명된 release 빌드(versionCode 5, 0.4.1)입니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
+서명된 release 빌드(versionCode 6, 0.4.1)입니다. 용량 제한을 넘으면 GitHub Releases에 올리고 이 자리에 Release 주소를 적습니다.
 
 ## 5. 시연 영상
 
